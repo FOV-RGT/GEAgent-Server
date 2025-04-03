@@ -5,7 +5,9 @@ const { client } = require('../services/chatService_stream');
 const LLM_CONFIG = [
     { model: "deepseek-ai/DeepSeek-R1" },
     { model: 'deepseek-ai/DeepSeek-V3' },
-    { model: 'Qwen/QwQ-32B' }
+    { model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B' },
+    { model: 'Qwen/QwQ-32B' },
+    { model: 'Qwen/Qwen2.5-72B-Instruct-128K' }
 ]
 
 router.post('/newSession', async (req, res) => {
@@ -44,7 +46,7 @@ router.post('/newSession', async (req, res) => {
                 }
             ],
             stream: true,
-            max_tokens: 16384,
+            max_tokens: 4096,
             stop: null,
             temperature: 0.8,
             top_p: 0.7,
