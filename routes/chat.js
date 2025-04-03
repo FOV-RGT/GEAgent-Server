@@ -25,8 +25,9 @@ router.post('/newSession', async (req, res) => {
     }
     try {
         const model = LLM_CONFIG[LLMID].model;
+        const parsedMessage = message.trim();
         console.log(`请求模型: ${model}`);
-        console.log(`请求消息: ${message}`);
+        console.log(`请求消息: ${parsedMessage}`);
         // 设置响应头以支持SSE
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
@@ -39,7 +40,7 @@ router.post('/newSession', async (req, res) => {
             messages: [
                 {
                     role: 'user',
-                    content: message,
+                    content: parsedMessage,
                 }
             ],
             stream: true,
@@ -65,6 +66,9 @@ router.post('/newSession', async (req, res) => {
         response.data.on('error', err => {
             console.error('流错误:', err);
             res.write(`${JSON.stringify({ error: '流处理出错: ' + err.message })}\n\n`);
+            res.end();
+        });
+        response.data.on('end', () => {
             res.end();
         });
     } catch (error) {
