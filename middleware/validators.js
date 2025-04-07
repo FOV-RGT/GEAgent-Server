@@ -23,5 +23,12 @@ exports.validateRegister = [
         .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('密码必须包含大小写字母和数字'),
     check('fullName')
         .optional({ checkFalsy: true })
-        .isLength({ max: 100 }).withMessage('昵称长度不能超过100个字符'),
+        .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符'),
 ]
+
+exports.validateUserCreation = [
+    ...exports.validateRegister, // 包含原有的注册验证规则
+    check('userId')
+        .optional({ checkFalsy: true })
+        .isInt({ min: 1, max: 100 }).withMessage('用户ID必须是1到100之间的整数')
+];

@@ -9,6 +9,11 @@ module.exports = {
                 primaryKey: true,
                 type: Sequelize.INTEGER
             },
+            userId: {
+                type: Sequelize.INTEGER,
+                allowNull: false,
+                unique: true,
+            },
             username: {
                 type: Sequelize.STRING(50),
                 allowNull: false,
@@ -20,11 +25,11 @@ module.exports = {
                 unique: true
             },
             password: {
-                type: Sequelize.STRING,
+                type: Sequelize.STRING(100),
                 allowNull: false
             },
             fullName: {
-                type: Sequelize.STRING(100),
+                type: Sequelize.STRING(20),
                 allowNull: true
             },
             avatarUrl: {
@@ -57,6 +62,7 @@ module.exports = {
         // 添加索引以提高查询性能
         await queryInterface.addIndex('users', ['email']);
         await queryInterface.addIndex('users', ['username']);
+        await queryInterface.addIndex('users', ['userId']);
     },
     async down(queryInterface, Sequelize) {
         await queryInterface.dropTable('users');

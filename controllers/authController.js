@@ -46,6 +46,7 @@ exports.login = async (req, res) => {
         const token = jwt.sign(
             {
                 id: user.id,
+                userId: user.userId,
                 username: user.username,
                 email: user.email,
                 role: user.role
@@ -58,6 +59,7 @@ exports.login = async (req, res) => {
             token,
             user: {
                 id: user.id,
+                userId: user.userId,
                 username: user.username,
                 email: user.email,
                 fullName: user.fullName,
@@ -97,9 +99,11 @@ exports.register = async (req, res) => {
                 message: '用户名已被注册'
             });
         }
+        let emailToSave = null;
         if (email && email.trim() !== '') {
+            emailToSave = email.trim();
             const existingEmail = await User.findOne({
-                where: { email }
+                where: { email: emailToSave }
             });
             if (existingEmail) {
                 return res.status(400).json({
@@ -111,9 +115,10 @@ exports.register = async (req, res) => {
         // 创建新用户
         const newUser = await User.create({
             username,
-            email,
+            email: emailToSave,
             password, // 密码会在模型中自动哈希加密
-            fullName,
+            userId: await User.getNewUserId(), // 获取最大用户ID并加1
+            fullName: fullName || null,
             role: 'user', // 默认角色为用户
             isActive: true // 默认激活状态
         });
@@ -121,6 +126,7 @@ exports.register = async (req, res) => {
         const token = jwt.sign(
             {
                 id: newUser.id,
+                userId: newUser.userId,
                 username: newUser.username,
                 email: newUser.email,
                 role: newUser.role
@@ -133,9 +139,10 @@ exports.register = async (req, res) => {
             token,
             user: {
                 id: newUser.id,
+                userId: newUser.userId,
                 username: newUser.username,
-                email: newUser.email || null,
-                fullName: newUser.fullName || null,
+                email: newUser.email,
+                fullName: newUser.fullName,
                 role: newUser.role
             }
         });
@@ -155,6 +162,7 @@ exports.getCurrentUser = async (req, res) => {
         const user = await User.findByPk(req.user.id, {
             attributes: [
                 'id',
+                'userId',
                 'username',
                 'email',
                 'fullName',
@@ -192,6 +200,7 @@ exports.getAllUsers = async (req, res) => {
         const users = await User.findAll({
             attributes: [
                 'id',
+                'userId',
                 'username',
                 'email',
                 'fullName',
@@ -227,6 +236,7 @@ exports.refreshToken = async (req, res) => {
             },
             attributes: [
                 'id',
+                'userId',
                 'username',
                 'email',
                 'role'
@@ -242,6 +252,7 @@ exports.refreshToken = async (req, res) => {
         const newToken = jwt.sign(
             {
                 id: user.id,
+                userId: user.userId,
                 username: user.username,
                 email: user.email,
                 role: user.role
@@ -255,6 +266,88 @@ exports.refreshToken = async (req, res) => {
         });
     } catch (e) {
         console.error('刷新令牌错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            error: e.message || '未知错误'
+        });
+    }
+}
+
+// 创建用户
+exports.createUser = async (req, res) => {
+    try {
+        const errors= validationResult(req);
+        // 验证请求
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                errors: errors.array()
+            });
+        }
+        const { username, email, password, fullName, avatarUrl, role, userId } = req.body;
+        const existingUsername = await User.findOne({
+            where: { username }
+        });
+        // 检查用户名是否已存在
+        if (existingUsername) {
+            return res.status(400).json({
+                success: false,
+                message: '用户名已被注册'
+            });
+        }
+        let emailToSave = null;
+        // 检查邮箱是否已存在
+        if (email && email.trim() !== '') {
+            emailToSave = email.trim();
+            const existingEmail = await User.findOne({
+                where: { email: emailToSave }
+            });
+            if (existingEmail) {
+                return res.status(400).json({
+                    success: false,
+                    message: '邮箱已被注册'
+                });
+            }
+        }
+        // 检查用户ID是否已存在
+        if (userId) {
+            const existingUserId = await User.findOne({
+                where: { userId }
+            });
+            if (existingUserId) {
+                return res.status(400).json({
+                    success: false,
+                    message: '用户ID已被使用'
+                });
+            }
+        }
+        // 创建新用户
+        const newUser = await User.create({
+            username,
+            email: emailToSave,
+            password,
+            fullName: fullName || null,
+            userId: userId || await User.getNewUserId(),
+            avatarUrl: avatarUrl || null,
+            role: role || 'admin', // 默认角色为管理员
+            isActive: true // 默认激活状态
+        });
+        res.status(201).json({
+            success: true,
+            user: {
+                id: newUser.id,
+                userId: parseInt(newUser.userId, 10),
+                username: newUser.username,
+                password,
+                email: newUser.email,
+                fullName: newUser.fullName,
+                avatarUrl: newUser.avatarUrl,
+                role: newUser.role
+            }
+        })
+    } catch (e) {
+        console.error('创建用户错误:', e);
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',

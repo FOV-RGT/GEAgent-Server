@@ -11,7 +11,6 @@ const LLM_CONFIG = [
 ]
 
 router.post('/newSession', async (req, res) => {
-    // 在发送任何响应前检查必要参数
     const { message, LLMID } = req.body;
     if (LLMID === undefined || !message) {
         return res.status(400).json({
