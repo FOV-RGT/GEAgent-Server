@@ -6,15 +6,34 @@ module.exports = (sequelize, DataTypes) => {
     class User extends Model {
         static associate(models) {
             // 定义与其他模型的关联
-            // 例如:
-            // User.hasMany(models.Post, { foreignKey: 'userId', as: 'posts' });
+            User.hasMany(models.Conversation, { 
+                foreignKey: 'userId', 
+                as: 'conversations' 
+            });
         }
         // 验证密码方法
         async validatePassword(password) {
             return bcrypt.compare(password, this.password);
         }
+        static async getNewUserId() {
+            try {
+                const maxUser = await this.findOne({
+                    order: [['userId', 'DESC']]
+                });
+                console.log('最大用户ID:', maxUser ? maxUser.userId : 100);
+                return maxUser ? maxUser.userId + 1 : 101; // 从101开始
+            } catch (e) {
+                console.error('获取最大用户ID失败:', e);
+                return 101;
+            }
+        }
     }
     User.init({
+        userId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            unique: true,
+        },
         username: {
             type: DataTypes.STRING(50),
             allowNull: false,
@@ -29,18 +48,26 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
             unique: true,
             validate: {
-                isEmail: true
+                isEmail: {
+                    msg: '请提供有效的邮箱地址',
+                    args: true
+                },
+                customValidator(value) {
+                    if (value === '') {
+                        this.setDataValue('email', null);
+                    }
+                }
             }
         },
         password: {
-            type: DataTypes.STRING,
+            type: DataTypes.STRING(100),
             allowNull: false,
             validate: {
                 len: [8, 100] // 密码长度8-100
             }
         },
         fullName: {
-            type: DataTypes.STRING(100),
+            type: DataTypes.STRING(20),
             allowNull: true
         },
         avatarUrl: {
@@ -65,7 +92,7 @@ module.exports = (sequelize, DataTypes) => {
         sequelize,
         modelName: 'User',
         tableName: 'users',
-        timestamps: true, // 创建 createdAt 和 updatedAt
+        timestamps: true,
         hooks: {
             // 加密密码的钩子
             beforeCreate: async (user) => {
