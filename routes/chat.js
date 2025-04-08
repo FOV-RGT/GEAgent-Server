@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { client } = require('../services/chatService_stream');
+const { authenticateJWT } = require('../middleware/auth');
+const { Conversation, Message } = require('../models');
+const { Op } = require('sequelize');
 
 const LLM_CONFIG = [
     { model: "deepseek-ai/DeepSeek-R1" },
@@ -10,8 +13,9 @@ const LLM_CONFIG = [
     { model: 'Qwen/Qwen2.5-72B-Instruct-128K' }
 ]
 
-router.post('/newSession', async (req, res) => {
-    const { message, LLMID } = req.body;
+// 创建新的对话
+router.post('/newConversation', authenticateJWT, async (req, res) => {
+    const { message, LLMID, title } = req.body;
     if (LLMID === undefined || !message) {
         return res.status(400).json({
             error: '缺少必要参数',
@@ -24,6 +28,27 @@ router.post('/newSession', async (req, res) => {
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
         });
     }
+    // 创建新的对话
+    let conversation;
+    try {
+        conversation = await Conversation.create({
+            userId: req.user.userId,
+            title: title || '新对话',
+            modelId: LLMID
+        });
+        // 保存对话数据
+        await Message.create({
+            conversationId: conversation.id,
+            role: 'user',
+            content: message.trim()
+        });
+    } catch (e) {
+        console.error('创建对话失败:', e);
+        return res.status(500).json({
+            error: '创建对话失败',
+            details: e.message || '未知错误'
+        });
+    }
     try {
         const model = LLM_CONFIG[LLMID].model;
         const parsedMessage = message.trim();
@@ -33,6 +58,7 @@ router.post('/newSession', async (req, res) => {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+        res.write(`data: ${JSON.stringify({ conversationId: conversation.id })}\n\n`);
         // 发送响应头
         res.flushHeaders();
         // 准备请求数据
@@ -56,12 +82,38 @@ router.post('/newSession', async (req, res) => {
                 type: 'text'
             }
         }
+        let resContent = '';
+        let resReasoningContent = '';
         // 发送请求
         const response = await client.post('/chat/completions', data);
         // 处理流式响应
         response.data.on('data', (chunk) => {
-            const chunkText = chunk;
-            res.write(`${chunkText}\n\n`);
+            const chunkText = chunk.toString();
+            try {
+                if (chunkText.includes('[DONE]')) {
+                    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+                    return;
+                }
+                const parsedData = JSON.parse(chunkText.replace('data: ', ''));
+                if (parsedData.choices && parsedData.choices.length > 0) {
+                    const delta = parsedData.choices[0].delta;
+                    const content = delta.content;
+                    const reasoning_content = delta.reasoning_content;
+                    if (content) {
+                        resContent += content;
+                    }
+                    if (reasoning_content) {
+                        resReasoningContent += reasoning_content;
+                    }
+                    res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
+                } else {
+                    res.write(`${chunkText}\n\n`);
+                }
+            } catch (e) {
+                console.error('解析数据错误:', e);
+                console.error(chunkText);
+                res.write(`data: ${JSON.stringify({ error: '数据解析错误: ' + e.message })}\n\n`);
+            }
         });
         // 处理流错误
         response.data.on('error', err => {
@@ -69,8 +121,21 @@ router.post('/newSession', async (req, res) => {
             res.write(`${JSON.stringify({ error: '流处理出错: ' + err.message })}\n\n`);
             res.end();
         });
-        response.data.on('end', () => {
-            res.end();
+        response.data.on('end', async () => {
+            try {
+                if (resContent) {
+                    await Message.create({
+                        conversationId: conversation.id,
+                        role: 'assistant',
+                        content: resContent,
+                        reasoning_content: resReasoningContent
+                    });
+                }
+            } catch (e) {
+                console.error('保存AI回复失败:', error);
+            } finally {
+                res.end();
+            }
         });
     } catch (error) {
         // 这里只有在设置响应头之前发生的错误才会执行
@@ -90,6 +155,236 @@ router.post('/newSession', async (req, res) => {
                 console.error('无法发送错误响应:', e);
             }
         }
+    }
+});
+
+// 继续现有对话
+router.post('/continueSession/:id', authenticateJWT, async (req, res) => {
+    const { message, LLMID } = req.body;
+    const conversationId = req.params.id;
+    if (!message) {
+        return res.status(400).json({
+            error: '缺少必要参数',
+            details: 'message是必需的'
+        });
+    }
+    try {
+        const conversation = await Conversation.findOne({
+            where: {
+                id: conversationId,
+                userId: req.user.userId
+            }
+        });
+        if (!conversation || conversation.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: '对话不存在或无权访问',
+            });
+        }
+        const messages = await Message.findAll({
+            where: { conversationId },
+            order: [['createdAt', 'ASC']]
+        });
+        await Message.create({
+            conversationId,
+            role: 'user',
+            content: message.trim()
+        });
+        const historyMessages = messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+        }));
+        historyMessages.push({
+            role: 'user',
+            content: message.trim()
+        });
+        const model = LLM_CONFIG[LLMID].model;
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+        const data = {
+            model,
+            messages: historyMessages,
+            stream: true,
+            max_tokens: 4096,
+            stop: null,
+            temperature: 0.8,
+            top_p: 0.7,
+            top_k: 50,
+            frequent_penalty: 0.5,
+            n: 1,
+            response_format: {
+                type: 'text'
+            }
+        };
+        let resContent = '';
+        let resReasoningContent = '';
+        const response = await client.post('/chat/completions', data);
+        response.data.on('data', (chunk) => {
+            const chunkText = chunk.toString();
+            try {
+                if (chunkText.includes('[DONE]')) {
+                    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+                    return;
+                }
+                let parsedData = chunkText;
+                if (chunkText.startsWith('data: ')) {
+                    parsedData = JSON.parse(chunkText.replace('data: ', ''));
+                }
+                if (parsedData.choices && parsedData.choices.length > 0) {
+                    const delta = parsedData.choices[0].delta;
+                    const content = delta.content;
+                    const reasoning_content = delta.reasoning_content;
+                    if (content) {
+                        resContent += content;
+                    }
+                    if (reasoning_content) {
+                        resReasoningContent += reasoning_content;
+                    }
+                    res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
+                } else {
+                    res.write(`${chunkText}\n\n`);
+                }
+            } catch (e) {
+                console.error('解析数据错误:', e);
+                console.error(chunkText);
+                res.write(`data: ${JSON.stringify({ error: '数据解析错误: ' + e.message })}\n\n`);
+            }
+        });
+        // 处理流错误
+        response.data.on('error', err => {
+            console.error('流错误:', err);
+            res.write(`${JSON.stringify({ error: '流处理出错: ' + err.message })}\n\n`);
+            res.end();
+        });
+        response.data.on('end', async () => {
+            try {
+                if (resContent) {
+                    await Message.create({
+                        conversationId: conversation.id,
+                        role: 'assistant',
+                        content: resContent,
+                        reasoning_content: resReasoningContent
+                    });
+                }
+            } catch (e) {
+                console.error('保存AI回复失败:', error);
+            } finally {
+                res.end();
+            }
+        });
+    } catch (error) {
+        // 这里只有在设置响应头之前发生的错误才会执行
+        console.error('LLM请求错误:', error.response?.data || error.message);
+        if (!res.headersSent) {
+            // 只有在响应头未发送时才设置状态和发送JSON
+            res.status(500).json({
+                error: '处理请求时出错',
+                details: error.message || '未知'
+            });
+        } else {
+            // 如果响应头已发送，通过流式方式发送错误
+            try {
+                res.write(`data: ${JSON.stringify({ error: '处理出错: ' + (error.message || '未知') })}\n\n`);
+                res.end();
+            } catch (e) {
+                console.error('无法发送错误响应:', e);
+            }
+        }
+    }
+});
+
+// 获取对话列表
+router.get('/conversations', authenticateJWT, async (req, res) => {
+    try {
+        const conversations = await Conversation.findAll({
+            where: { userId: req.user.userId },
+            order: [['updatedAt', 'DESC']],
+        });
+        res.json({ success: true, conversations });
+    } catch (e) {
+        console.error('获取对话列表失败:', e);
+        res.status(500).json({
+            error: '获取对话列表失败',
+            details: e.message || '未知错误'
+        });
+    }
+});
+
+// 获取特定对话所有消息
+router.get('/conversations/:id', authenticateJWT, async (req, res) => {
+    try {
+        const conversations = await Conversation.findAll({
+            where: {
+                id: req.params.id,
+                userId: req.user.userId
+            },
+            include: {
+                model: Message,
+                as: 'messages',
+                order: [['createdAt', 'ASC']]
+            }
+        });
+        if (!conversations || conversations.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: '对话不存在或无权访问',
+            });
+        }
+        res.json({
+            success: true,
+            conversation: conversations,
+        })
+    } catch (e) {
+        console.error('获取对话消息失败:', e);
+        res.status(500).json({
+            error: '获取对话消息失败',
+            details: e.message || '未知错误'
+        });
+    }
+});
+
+// 删除对话
+router.post('/conversations', authenticateJWT, async (req, res) => {
+    try {
+        let { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: '请提供有效的对话ID数组',
+            });
+        }
+        ids = ids.map(id => parseInt(id)).filter(id => !isNaN(id));
+        if (ids.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: '无效的对话ID',
+            });
+        }
+        const result = await Conversation.destroy({
+            where: {
+                id: { [Op.in]: ids },
+                userId: req.user.userId
+            }
+        });
+        if (result === 0) {
+            return res.status(404).json({
+                success: false,
+                message: '未找到可删除的对话或无权访问',
+            });
+        }
+        res.json({
+            success: true,
+            message: `成功删除了${result}个对话`,
+            deletedCount: result
+        });
+    } catch (e) {
+        console.error('删除对话失败:', e);
+        res.status(500).json({
+            error: '删除对话失败',
+            details: e.message || '未知错误'
+        });
     }
 });
 
