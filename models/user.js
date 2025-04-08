@@ -6,8 +6,10 @@ module.exports = (sequelize, DataTypes) => {
     class User extends Model {
         static associate(models) {
             // 定义与其他模型的关联
-            // 例如:
-            // User.hasMany(models.Post, { foreignKey: 'userId', as: 'posts' });
+            User.hasMany(models.Conversation, { 
+                foreignKey: 'userId', 
+                as: 'conversations' 
+            });
         }
         // 验证密码方法
         async validatePassword(password) {
@@ -90,7 +92,7 @@ module.exports = (sequelize, DataTypes) => {
         sequelize,
         modelName: 'User',
         tableName: 'users',
-        timestamps: true, // 创建 createdAt 和 updatedAt
+        timestamps: true,
         hooks: {
             // 加密密码的钩子
             beforeCreate: async (user) => {
