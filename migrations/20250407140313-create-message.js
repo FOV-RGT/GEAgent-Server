@@ -10,7 +10,14 @@ module.exports = {
         type: Sequelize.INTEGER
       },
       conversationId: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'conversations',
+          key: 'id'
+        },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
       },
       role: {
         type: Sequelize.ENUM('user', 'assistant', 'system'),

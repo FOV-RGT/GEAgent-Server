@@ -12,6 +12,18 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: 'CASCADE'
       });
     }
+    static async getNextConversationId(userId) {
+      try {
+        const maxConversation = await this.findOne({
+          where: { userId },
+          order: [['conversationId', 'DESC']]
+        })
+        return maxConversation ? maxConversation.conversationId + 1 : 1;
+      } catch (e) {
+        console.error('获取最大对话ID失败:', e);
+        return 1; // 默认返回1
+      }
+    }
   }
   
   Conversation.init({
@@ -23,19 +35,27 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id'
       }
     },
+    conversationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
     title: {
       type: DataTypes.STRING,
       allowNull: true,
       defaultValue: '新对话'
-    },
-    modelId: {
-      type: DataTypes.INTEGER,
-      allowNull: false
     }
   }, {
     sequelize,
     modelName: 'Conversation',
-    tableName: 'conversations'
+    tableName: 'conversations',
+    timestamps: true,
+    indexes: [
+      {
+        name: 'unique_user_conversation_id',
+        unique: true,
+        fields: ['userId', 'conversationId']
+      }
+    ]
   });
   
   return Conversation;

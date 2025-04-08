@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { client } = require('../services/chatService_stream');
 const { authenticateJWT } = require('../middleware/auth');
+const { validateConversationTitle } = require('../middleware/validators');
 const { Conversation, Message } = require('../models');
 const { Op } = require('sequelize');
 
@@ -14,15 +15,15 @@ const LLM_CONFIG = [
 ]
 
 // 创建新的对话
-router.post('/newConversation', authenticateJWT, async (req, res) => {
+router.post('/create', authenticateJWT, validateConversationTitle, async (req, res) => {
     const { message, LLMID, title } = req.body;
-    if (LLMID === undefined || !message) {
+    if (!message) {
         return res.status(400).json({
             error: '缺少必要参数',
-            details: 'LLMID和message是必需的'
+            details: 'message是必需的'
         });
     }
-    if (LLMID < 0 || LLMID >= LLM_CONFIG.length) {
+    if (!LLMID || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
         return res.status(400).json({
             error: '无效的LLMID',
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
@@ -30,11 +31,12 @@ router.post('/newConversation', authenticateJWT, async (req, res) => {
     }
     // 创建新的对话
     let conversation;
+    const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
     try {
         conversation = await Conversation.create({
             userId: req.user.userId,
+            conversationId: nextConversationId,
             title: title || '新对话',
-            modelId: LLMID
         });
         // 保存对话数据
         await Message.create({
@@ -58,7 +60,7 @@ router.post('/newConversation', authenticateJWT, async (req, res) => {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
-        res.write(`data: ${JSON.stringify({ conversationId: conversation.id })}\n\n`);
+        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId })}\n\n`);
         // 发送响应头
         res.flushHeaders();
         // 准备请求数据
@@ -94,25 +96,46 @@ router.post('/newConversation', authenticateJWT, async (req, res) => {
                     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                     return;
                 }
-                const parsedData = JSON.parse(chunkText.replace('data: ', ''));
-                if (parsedData.choices && parsedData.choices.length > 0) {
-                    const delta = parsedData.choices[0].delta;
-                    const content = delta.content;
-                    const reasoning_content = delta.reasoning_content;
-                    if (content) {
-                        resContent += content;
+                const dataChunks = chunkText.split('\n\n').filter(chunk => chunk.trim() !== '');
+                for (const dataChunk of dataChunks) {
+                    // 处理每个独立的数据块
+                    if (dataChunk.trim().startsWith('data: ')) {
+                        try {
+                            // 提取JSON部分
+                            const jsonText = dataChunk.trim().substring(6);
+                            const parsedData = JSON.parse(jsonText);
+                            if (parsedData.choices && parsedData.choices.length > 0) {
+                                const delta = parsedData.choices[0].delta;
+                                const content = delta.content || null;
+                                const reasoning_content = delta.reasoning_content || null;
+                                if (content) {
+                                    resContent += content;
+                                }
+                                if (reasoning_content) {
+                                    resReasoningContent += reasoning_content;
+                                }
+                                // 只转发有内容的部分
+                                if (content || reasoning_content) {
+                                    res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
+                                }
+                            }
+                        } catch (parseError) {
+                            // 单个数据块解析错误，记录并继续处理其他块
+                            console.error('解析JSON块失败:', parseError.message);
+                            console.error('问题数据块:', dataChunk);
+                            // 作为原始数据发送
+                            res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
+                        }
+                    } else {
+                        // 非标准格式数据发送为原始数据
+                        res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
                     }
-                    if (reasoning_content) {
-                        resReasoningContent += reasoning_content;
-                    }
-                    res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
-                } else {
-                    res.write(`${chunkText}\n\n`);
                 }
             } catch (e) {
-                console.error('解析数据错误:', e);
-                console.error(chunkText);
-                res.write(`data: ${JSON.stringify({ error: '数据解析错误: ' + e.message })}\n\n`);
+                // 整体处理异常
+                console.error('处理响应数据错误:', e);
+                console.error('原始数据:', chunkText);
+                res.write(`data: ${JSON.stringify({ error: '数据处理错误: ' + e.message })}\n\n`);
             }
         });
         // 处理流错误
@@ -132,7 +155,7 @@ router.post('/newConversation', authenticateJWT, async (req, res) => {
                     });
                 }
             } catch (e) {
-                console.error('保存AI回复失败:', error);
+                console.error('保存AI回复失败:', e);
             } finally {
                 res.end();
             }
@@ -159,34 +182,46 @@ router.post('/newConversation', authenticateJWT, async (req, res) => {
 });
 
 // 继续现有对话
-router.post('/continueSession/:id', authenticateJWT, async (req, res) => {
+router.post('/continue/:conversationId', authenticateJWT, async (req, res) => {
     const { message, LLMID } = req.body;
-    const conversationId = req.params.id;
+    const userConversationId = parseInt(req.params.conversationId);
+    if (isNaN(userConversationId)) {
+        return res.status(400).json({
+            error: '无效的会话ID',
+            details: '会话ID必须是数字'
+        });
+    }
     if (!message) {
         return res.status(400).json({
             error: '缺少必要参数',
             details: 'message是必需的'
         });
     }
+    if (!LLMID || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
+        return res.status(400).json({
+            error: '无效的LLMID',
+            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
+        });
+    }
     try {
         const conversation = await Conversation.findOne({
             where: {
-                id: conversationId,
-                userId: req.user.userId
+                userId: req.user.userId,
+                conversationId: userConversationId
             }
         });
-        if (!conversation || conversation.length === 0) {
+        if (!conversation) {
             return res.status(404).json({
                 success: false,
                 error: '对话不存在或无权访问',
             });
         }
         const messages = await Message.findAll({
-            where: { conversationId },
+            where: { conversationId: conversation.id },
             order: [['createdAt', 'ASC']]
         });
         await Message.create({
-            conversationId,
+            conversationId: conversation.id,
             role: 'user',
             content: message.trim()
         });
@@ -228,28 +263,46 @@ router.post('/continueSession/:id', authenticateJWT, async (req, res) => {
                     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                     return;
                 }
-                let parsedData = chunkText;
-                if (chunkText.startsWith('data: ')) {
-                    parsedData = JSON.parse(chunkText.replace('data: ', ''));
-                }
-                if (parsedData.choices && parsedData.choices.length > 0) {
-                    const delta = parsedData.choices[0].delta;
-                    const content = delta.content;
-                    const reasoning_content = delta.reasoning_content;
-                    if (content) {
-                        resContent += content;
+                const dataChunks = chunkText.split('\n\n').filter(chunk => chunk.trim() !== '');
+                for (const dataChunk of dataChunks) {
+                    // 处理每个独立的数据块
+                    if (dataChunk.trim().startsWith('data: ')) {
+                        try {
+                            // 提取JSON部分
+                            const jsonText = dataChunk.trim().substring(6);
+                            const parsedData = JSON.parse(jsonText);
+                            if (parsedData.choices && parsedData.choices.length > 0) {
+                                const delta = parsedData.choices[0].delta;
+                                const content = delta.content || null;
+                                const reasoning_content = delta.reasoning_content || null;
+                                if (content) {
+                                    resContent += content;
+                                }
+                                if (reasoning_content) {
+                                    resReasoningContent += reasoning_content;
+                                }
+                                // 只转发有内容的部分
+                                if (content || reasoning_content) {
+                                    res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
+                                }
+                            }
+                        } catch (parseError) {
+                            // 单个数据块解析错误，记录并继续处理其他块
+                            console.error('解析JSON块失败:', parseError.message);
+                            console.error('问题数据块:', dataChunk);
+                            // 作为原始数据发送
+                            res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
+                        }
+                    } else {
+                        // 非标准格式数据发送为原始数据
+                        res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
                     }
-                    if (reasoning_content) {
-                        resReasoningContent += reasoning_content;
-                    }
-                    res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
-                } else {
-                    res.write(`${chunkText}\n\n`);
                 }
             } catch (e) {
-                console.error('解析数据错误:', e);
-                console.error(chunkText);
-                res.write(`data: ${JSON.stringify({ error: '数据解析错误: ' + e.message })}\n\n`);
+                // 整体处理异常
+                console.error('处理响应数据错误:', e);
+                console.error('原始数据:', chunkText);
+                res.write(`data: ${JSON.stringify({ error: '数据处理错误: ' + e.message })}\n\n`);
             }
         });
         // 处理流错误
@@ -269,7 +322,7 @@ router.post('/continueSession/:id', authenticateJWT, async (req, res) => {
                     });
                 }
             } catch (e) {
-                console.error('保存AI回复失败:', error);
+                console.error('保存AI回复失败:', e);
             } finally {
                 res.end();
             }
@@ -296,12 +349,19 @@ router.post('/continueSession/:id', authenticateJWT, async (req, res) => {
 });
 
 // 获取对话列表
-router.get('/conversations', authenticateJWT, async (req, res) => {
+router.get('/list', authenticateJWT, async (req, res) => {
     try {
         const conversations = await Conversation.findAll({
             where: { userId: req.user.userId },
             order: [['updatedAt', 'DESC']],
+            attributes: ['id', 'conversationId', 'title', 'createdAt', 'updatedAt'],
         });
+        if (conversations.length === 0) {
+            return res.status(200).json({
+                success: false,
+                message: '没有找到对话',
+            });
+        }
         res.json({ success: true, conversations });
     } catch (e) {
         console.error('获取对话列表失败:', e);
@@ -313,12 +373,19 @@ router.get('/conversations', authenticateJWT, async (req, res) => {
 });
 
 // 获取特定对话所有消息
-router.get('/conversations/:id', authenticateJWT, async (req, res) => {
+router.get('/list/:conversationId', authenticateJWT, async (req, res) => {
     try {
-        const conversations = await Conversation.findAll({
+        const userConversationId = parseInt(req.params.conversationId);
+        if (isNaN(userConversationId)) {
+            return res.status(400).json({
+                error: '无效的会话ID',
+                details: '会话ID必须是数字'
+            });
+        }
+        const conversation = await Conversation.findOne({
             where: {
-                id: req.params.id,
-                userId: req.user.userId
+                userId: req.user.userId,
+                conversationId: userConversationId
             },
             include: {
                 model: Message,
@@ -326,7 +393,7 @@ router.get('/conversations/:id', authenticateJWT, async (req, res) => {
                 order: [['createdAt', 'ASC']]
             }
         });
-        if (!conversations || conversations.length === 0) {
+        if (!conversation) {
             return res.status(404).json({
                 success: false,
                 message: '对话不存在或无权访问',
@@ -334,7 +401,7 @@ router.get('/conversations/:id', authenticateJWT, async (req, res) => {
         }
         res.json({
             success: true,
-            conversation: conversations,
+            conversation,
         })
     } catch (e) {
         console.error('获取对话消息失败:', e);
@@ -346,17 +413,17 @@ router.get('/conversations/:id', authenticateJWT, async (req, res) => {
 });
 
 // 删除对话
-router.post('/conversations', authenticateJWT, async (req, res) => {
+router.delete('/', authenticateJWT, async (req, res) => {
     try {
-        let { ids } = req.body;
-        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        let { conversationIds } = req.body;
+        if (!conversationIds || !Array.isArray(conversationIds) || conversationIds.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: '请提供有效的对话ID数组',
             });
         }
-        ids = ids.map(id => parseInt(id)).filter(id => !isNaN(id));
-        if (ids.length === 0) {
+        conversationIds = conversationIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+        if (conversationIds.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: '无效的对话ID',
@@ -364,8 +431,8 @@ router.post('/conversations', authenticateJWT, async (req, res) => {
         }
         const result = await Conversation.destroy({
             where: {
-                id: { [Op.in]: ids },
-                userId: req.user.userId
+                userId: req.user.userId,
+                conversationId: { [Op.in]: conversationIds }
             }
         });
         if (result === 0) {
@@ -387,5 +454,51 @@ router.post('/conversations', authenticateJWT, async (req, res) => {
         });
     }
 });
+
+// 更新标题
+router.post('/updateTitle/:conversationId', authenticateJWT, validateConversationTitle, async (req, res) => {
+    try {
+        const userConversationId = parseInt(req.params.conversationId);
+        const { title } = req.body;
+        if (isNaN(userConversationId)) {
+            return res.status(400).json({
+                error: '无效的会话ID',
+                details: '会话ID必须是数字'
+            });
+        }
+        if (!title) {
+            return res.status(400).json({
+                error: '缺少必要参数',
+                details: 'title是必需的'
+            });
+        }
+        const conversation = await Conversation.findOne({
+            where: {
+                userId: req.user.userId,
+                conversationId: userConversationId
+            }
+        });
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: '对话不存在或无权访问',
+            });
+        }
+        conversation.title = title;
+        await conversation.save();
+        res.json({
+            success: true,
+            message: '标题更新成功',
+            conversationId: userConversationId,
+            title: title
+        });
+    } catch (e) {
+        console.error('更新标题失败:', e);
+        return res.status(500).json({
+            error: '更新标题失败',
+            details: e.message || '未知错误'
+        });
+    }
+})
 
 module.exports = router;

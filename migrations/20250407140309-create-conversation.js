@@ -18,11 +18,12 @@ module.exports = {
         },
         onDelete: 'CASCADE'
       },
+      conversationId: {
+        type: Sequelize.INTEGER,
+        allowNull: false
+      },
       title: {
         type: Sequelize.STRING
-      },
-      modelId: {
-        type: Sequelize.INTEGER
       },
       createdAt: {
         allowNull: false,
@@ -32,6 +33,10 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DATE
       }
+    });
+    await queryInterface.addIndex('conversations', ['userId', 'conversationId'], {
+      name: 'unique_user_conversation_id',
+      unique: true
     });
   },
   async down(queryInterface, Sequelize) {

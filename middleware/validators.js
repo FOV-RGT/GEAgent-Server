@@ -32,3 +32,12 @@ exports.validateUserCreation = [
         .optional({ checkFalsy: true })
         .isInt({ min: 1, max: 100 }).withMessage('用户ID必须是1到100之间的整数')
 ];
+
+// 验证对话标题
+exports.validateConversationTitle = [
+    check('title')
+        .isLength({ max: 50 }).withMessage('标题长度不能超过50个字符')
+        .matches(/^[^<>]*$/).withMessage('标题不能包含HTML标签字符')
+        .trim()
+        .escape() // 转义HTML特殊字符，防止XSS
+];
