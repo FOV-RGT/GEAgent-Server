@@ -96,7 +96,7 @@ exports.register = async (req, res) => {
         if (existingUsername) {
             return res.status(400).json({
                 success: false,
-                message: '用户名已被注册'
+                message: '账号已被注册'
             });
         }
         let emailToSave = null;
