@@ -6,7 +6,12 @@
 
 ## 配置环境变量
 - 将根目录下的`env.example`重命名为`.env`
-- 设置`.env`中的`JWT_SECRET`与`API_KEY`为相应值(`API_KEY`应为*硅基流动*平台提供的API Key)
+- 设置`.env`中的`JWT_SECRET`与`API_KEY`为相应值
+**attr:**
+  - **CHAT_API_KEY**：硅基流动平台的API Key
+  - **SEARCH_API_KEY**：百度智能云千帆的API key，作为调用搜索模型的凭证
+  - **SEARCH_APP_ID**：使用百度智能云千帆`AppBuilder`创建应用并发布后的`app_id`，该应用应能返回联网搜索结果
+
 
 > **JWT_SECRET可参照以下方式创建**
 ```shell
