@@ -22,6 +22,10 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false
       },
+      searchId: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
       title: {
         type: Sequelize.STRING
       },

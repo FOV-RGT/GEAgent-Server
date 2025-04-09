@@ -7,7 +7,8 @@
     "dialect": "mysql",
     "port": "3308",
     "charset": "utf8mb4",
-    "collate": "utf8mb4_general_ci"
+    "collate": "utf8mb4_general_ci",
+    "timezone": "+08:00"
   },
   "test": {
     "username": "root",
@@ -17,7 +18,8 @@
     "dialect": "mysql",
     "port": "3308",
     "charset": "utf8mb4",
-    "collate": "utf8mb4_general_ci"
+    "collate": "utf8mb4_general_ci",
+    "timezone": "+08:00"
   },
   "production": {
     "username": "root",
@@ -27,6 +29,7 @@
     "dialect": "mysql",
     "port": "3308",
     "charset": "utf8mb4",
-    "collate": "utf8mb4_general_ci"
+    "collate": "utf8mb4_general_ci",
+    "timezone": "+08:00"
   }
 }

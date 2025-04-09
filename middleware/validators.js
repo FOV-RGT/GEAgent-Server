@@ -26,8 +26,9 @@ exports.validateRegister = [
         .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符'),
 ]
 
+// 用户创建验证
 exports.validateUserCreation = [
-    ...exports.validateRegister, // 包含原有的注册验证规则
+    ...exports.validateRegister,
     check('userId')
         .optional({ checkFalsy: true })
         .isInt({ min: 1, max: 100 }).withMessage('用户ID必须是1到100之间的整数')
