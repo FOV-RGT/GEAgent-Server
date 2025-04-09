@@ -39,6 +39,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+    searchId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     title: {
       type: DataTypes.STRING,
       allowNull: true,

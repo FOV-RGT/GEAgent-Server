@@ -1,15 +1,13 @@
 const axios = require('axios');
 require('dotenv').config();
 
-// 创建流式输出axios客户端实例
+// 创建axios客户端实例
 const client = axios.create({
-    baseURL: 'https://api.siliconflow.cn/v1',
+    baseURL: 'https://qianfan.baidubce.com',
     headers: {
-        'Authorization': `Bearer ${process.env.CHAT_API_KEY}`,
+        'Authorization': `Bearer ${process.env.SEARCH_API_KEY}`,
         'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
     },
-    responseType: 'stream'
 });
 
 // 请求拦截器

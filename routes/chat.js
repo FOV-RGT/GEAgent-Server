@@ -6,6 +6,8 @@ const { validateConversationTitle } = require('../middleware/validators');
 const { Conversation, Message } = require('../models');
 const { Op } = require('sequelize');
 
+const searchController = require('../controllers/searchController');
+
 const LLM_CONFIG = [
     { model: "deepseek-ai/DeepSeek-R1" },
     { model: 'deepseek-ai/DeepSeek-V3' },
@@ -16,7 +18,7 @@ const LLM_CONFIG = [
 
 // 创建新的对话
 router.post('/create', authenticateJWT, validateConversationTitle, async (req, res) => {
-    const { message, LLMID, title } = req.body;
+    const { message, LLMID, title, webSearch } = req.body;
     if (!message) {
         return res.status(400).json({
             error: '缺少必要参数',
@@ -29,6 +31,19 @@ router.post('/create', authenticateJWT, validateConversationTitle, async (req, r
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
         });
     }
+    let searchRes;
+    if (webSearch === 'true') {
+        try {
+            searchRes = await searchController.createNewSearch(message);
+            console.log('搜索结果:', searchRes);
+        } catch (e) {
+            console.error('创建新搜索会话失败:', e.message || '未知错误');
+            return res.status(500).json({
+                error: '创建新搜索会话失败',
+                details: e.message || '未知错误'
+            });
+        }
+    }
     // 创建新的对话
     let conversation;
     const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
@@ -36,6 +51,7 @@ router.post('/create', authenticateJWT, validateConversationTitle, async (req, r
         conversation = await Conversation.create({
             userId: req.user.userId,
             conversationId: nextConversationId,
+            searchId: searchRes ? searchRes.searchId : null,
             title: title || '新对话',
         });
         // 保存对话数据
@@ -63,15 +79,21 @@ router.post('/create', authenticateJWT, validateConversationTitle, async (req, r
         res.write(`data: ${JSON.stringify({ conversationId: nextConversationId })}\n\n`);
         // 发送响应头
         res.flushHeaders();
+        const messages = [];
+        messages.push({
+            role: 'user',
+            content: parsedMessage
+        });
+        if (searchRes) {
+            messages.push({
+                role: 'system',
+                content: searchRes ? searchRes.message : null
+            });
+        }
         // 准备请求数据
         const data = {
             model,
-            messages: [
-                {
-                    role: 'user',
-                    content: parsedMessage,
-                }
-            ],
+            messages,
             stream: true,
             max_tokens: 4096,
             stop: null,
@@ -183,7 +205,7 @@ router.post('/create', authenticateJWT, validateConversationTitle, async (req, r
 
 // 继续现有对话
 router.post('/continue/:conversationId', authenticateJWT, async (req, res) => {
-    const { message, LLMID } = req.body;
+    const { message, LLMID, webSearch } = req.body;
     const userConversationId = parseInt(req.params.conversationId);
     if (isNaN(userConversationId)) {
         return res.status(400).json({
@@ -210,6 +232,32 @@ router.post('/continue/:conversationId', authenticateJWT, async (req, res) => {
                 conversationId: userConversationId
             }
         });
+        let searchRes;
+        if (webSearch === 'true') {
+            if (!conversation.searchId) {
+                try {
+                    searchRes = await searchController.createNewSearch(message);
+                    conversation.searchId = searchRes.searchId;
+                    await conversation.save();
+                } catch (e) {
+                    console.error('创建新搜索会话失败:', e.message || '未知错误');
+                    return res.status(500).json({
+                        error: '创建新搜索会话失败',
+                        details: e.message || '未知错误'
+                    });
+                }
+            } else {
+                try {
+                    searchRes = await searchController.search(message, conversation.searchId);
+                    console.log('搜索结果:', searchRes);
+                } catch (e) {
+                    return res.status(500).json({
+                        error: '搜索失败',
+                        details: e.message || '未知错误'
+                    });
+                }
+            }
+        }
         if (!conversation) {
             return res.status(404).json({
                 success: false,
@@ -233,6 +281,12 @@ router.post('/continue/:conversationId', authenticateJWT, async (req, res) => {
             role: 'user',
             content: message.trim()
         });
+        if (searchRes) {
+            historyMessages.push({
+                role: "system",
+                content: searchRes ? searchRes.message : null
+            });
+        }
         const model = LLM_CONFIG[LLMID].model;
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
