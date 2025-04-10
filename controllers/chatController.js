@@ -114,7 +114,7 @@ exports.createNewConversation = async (req, res) => {
             userId: req.user.userId,
             conversationId: nextConversationId,
             searchId: searchRes ? searchRes.searchId : null,
-            title: title || '新对话',
+            title,
         });
         // 保存对话数据
         await Message.create({
@@ -139,7 +139,7 @@ exports.createNewConversation = async (req, res) => {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
-        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId })}\n\n`);
+        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
         // 发送响应头
         res.flushHeaders();
         const messages = [];
@@ -734,3 +734,31 @@ exports.updateConversationTitle = async (req, res) => {
         });
     }
 };
+
+exports.deleteAllConversations = async (req, res) => {
+    try {
+        const result = await Conversation.destroy({
+            where: {
+                userId: req.user.userId
+            }
+        });
+        if (result === 0) {
+            return res.status(404).json({
+                success: false,
+                message: '未找到可删除的对话或无权访问'
+            });
+        }
+        res.json({
+            success: true,
+            message: `成功删除了${result}个对话`,
+            deletedCount: result
+        });
+    } catch (e) {
+        console.error('删除所有对话失败:', e);
+        res.status(500).json({
+            success: false,
+            message: '删除所有对话失败',
+            details: e.message || '未知错误'
+        });
+    }
+}

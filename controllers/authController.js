@@ -52,13 +52,12 @@ exports.login = async (req, res) => {
                 role: user.role
             },
             process.env.JWT_SECRET,
-            { expiresIn: '12h' } // 12小时过期
+            { expiresIn: '3d' } // 3天过期
         );
         res.json({
             success: true,
             token,
             user: {
-                id: user.id,
                 userId: user.userId,
                 username: user.username,
                 email: user.email,
@@ -72,7 +71,7 @@ exports.login = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',
-            error: e.message || '未知错误'
+            details: e.message || '未知错误'
         });
     }
 }
@@ -132,13 +131,12 @@ exports.register = async (req, res) => {
                 role: newUser.role
             },
             process.env.JWT_SECRET,
-            { expiresIn: '12h' }
+            { expiresIn: '3d' } // 3天过期
         );
         res.status(201).json({
             success: true,
             token,
             user: {
-                id: newUser.id,
                 userId: newUser.userId,
                 username: newUser.username,
                 email: newUser.email,
@@ -151,7 +149,7 @@ exports.register = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',
-            error: e.message || '未知错误'
+            details: e.message || '未知错误'
         });
     }
 }
@@ -161,7 +159,6 @@ exports.getCurrentUser = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
             attributes: [
-                'id',
                 'userId',
                 'username',
                 'email',
@@ -189,7 +186,7 @@ exports.getCurrentUser = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',
-            error: e.message || '未知错误'
+            details: e.message || '未知错误'
         });
     }
 }
@@ -221,7 +218,7 @@ exports.getAllUsers = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',
-            error: e.message || '未知错误'
+            details: e.message || '未知错误'
         });
     }
 }
@@ -258,7 +255,7 @@ exports.refreshToken = async (req, res) => {
                 role: user.role
             },
             process.env.JWT_SECRET,
-            { expiresIn: '12h' } // 12小时过期
+            { expiresIn: '3d' } // 3天过期
         );
         res.json({
             success: true,
@@ -269,7 +266,7 @@ exports.refreshToken = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',
-            error: e.message || '未知错误'
+            details: e.message || '未知错误'
         });
     }
 }
@@ -277,7 +274,7 @@ exports.refreshToken = async (req, res) => {
 // 创建用户
 exports.createUser = async (req, res) => {
     try {
-        const errors= validationResult(req);
+        const errors = validationResult(req);
         // 验证请求
         if (!errors.isEmpty()) {
             return res.status(400).json({
@@ -351,7 +348,164 @@ exports.createUser = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',
-            error: e.message || '未知错误'
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.updateUser = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            success: false,
+            details: errors.array()
+        });
+    }
+    const { currentPassword, email, fullName } = req.body;
+    try {
+        const user = await User.findByPk(req.params.userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: '用户不存在'
+            });
+        }
+        if (!!email) {
+            if (!currentPassword) {
+                return res.status(400).json({
+                    success: false,
+                    message: '更新邮箱需要提供当前密码'
+                });
+            }
+            const isMatch = await user.validatePassword(currentPassword);
+            if (!isMatch) {
+                return res.status(401).json({
+                    success: false,
+                    message: '当前密码错误'
+                });
+            }
+            if (email && email.trim() !== user.email) {
+                const existingEmail = await User.findOne({
+                    where: {
+                        email: email.trim(),
+                        id: { [Op.ne]: user.id }
+                    }
+                });
+                if (existingEmail) {
+                    return res.status(400).json({
+                        success: false,
+                        message: '邮箱已被其他账号使用'
+                    });
+                }
+                user.email = email.trim();
+            }
+        }
+        if (!!fullName && fullName !== user.fullName) {
+            user.fullName = fullName;
+        }
+        await user.save();
+        res.json({
+            success: true,
+            user: {
+                email: user.email,
+                fullName: user.fullName
+            }
+        });
+    } catch (e) {
+        console.error('更新用户信息错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            details: e.message || '未知错误'
+        });
+    }
+};
+
+exports.updatePassword = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            success: false,
+            details: errors.array()
+        });
+    }
+    const { currentPassword, updatedPassword } = req.body;
+    const passwordRequestedValidate = !!currentPassword && !!updatedPassword
+    if (!passwordRequestedValidate) {
+        return res.status(400).json({
+            success: false,
+            message: '密码上传不完整'
+        });
+    }
+    try {
+        const user = await User.findByPk(req.params.userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: '用户不存在'
+            });
+        }
+        const isMatch = await user.validatePassword(currentPassword);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: '当前密码错误'
+            });
+        }
+        user.password = updatedPassword;
+        await user.save();
+        let token = null;
+        try {
+            const user = await User.findOne({
+                where: {
+                    id: req.user.id,
+                    isActive: true // 确保账号处于激活状态
+                },
+                attributes: [
+                    'id',
+                    'userId',
+                    'username',
+                    'email',
+                    'role'
+                ]
+            });
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: '用户不存在或已被禁用'
+                });
+            }
+            // 生成新token
+            token = jwt.sign(
+                {
+                    id: user.id,
+                    userId: user.userId,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: '3d' } // 3天过期
+            );
+        } catch (e) {
+            console.error('刷新令牌错误:', e);
+            res.status(500).json({
+                success: false,
+                message: '服务器错误，请稍后再试',
+                details: e.message || '未知错误'
+            });
+        }
+        res.json({
+            success: true,
+            message: '密码更新成功',
+            token
+        });
+    } catch (e) {
+        console.error('更新用户信息错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            details: e.message || '未知错误'
         });
     }
 }
