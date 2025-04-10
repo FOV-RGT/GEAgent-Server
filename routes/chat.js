@@ -17,9 +17,12 @@ router.get('/list', authenticateJWT, chatController.getConversationsList);
 router.get('/list/:conversationId', authenticateJWT, chatController.getConversationData);
 
 // 删除对话
-router.delete('/', authenticateJWT, chatController.deleteConversation);
+router.delete('/delete', authenticateJWT, chatController.deleteConversation);
+
+// 删除所有对话
+router.delete('/deleteAll', authenticateJWT, chatController.deleteAllConversations);
 
 // 更新标题
-router.post('/updateTitle/:conversationId', authenticateJWT, validateConversationTitle, chatController.updateConversationTitle)
+router.put('/updateTitle/:conversationId', authenticateJWT, validateConversationTitle, chatController.updateConversationTitle);
 
 module.exports = router;

@@ -23,7 +23,7 @@ exports.validateRegister = [
         .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('密码必须包含大小写字母和数字'),
     check('fullName')
         .optional({ checkFalsy: true })
-        .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符'),
+        .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符')
 ]
 
 // 用户创建验证
@@ -42,3 +42,19 @@ exports.validateConversationTitle = [
         .trim()
         .escape() // 转义HTML特殊字符，防止XSS
 ];
+
+exports.validateUpdateInfo = [
+    check('email')
+        .optional({ checkFalsy: true }) // 允许为空或未提供
+        .isEmail().withMessage('无效的电子邮件地址'),
+    check('fullName')
+        .optional({ checkFalsy: true })
+        .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符')
+]
+
+exports.validateUpdatePassword = [
+    check('updatedPassword')
+        .notEmpty().withMessage('新密码不能为空')
+        .isLength({ min: 8, max: 100 }).withMessage('新密码长度必须在8-100字符之间')
+        .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('新密码必须包含大小写字母和数字')
+]

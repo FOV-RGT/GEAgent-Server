@@ -1,6 +1,6 @@
 {
   "name": "geseek-server",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "private": true,
   "scripts": {
   "start:dev": "cross-env NODE_ENV=development nodemon ./bin/www",

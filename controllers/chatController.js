@@ -4,37 +4,104 @@ const { Conversation, Message } = require('../models');
 const { Op } = require('sequelize');
 
 const LLM_CONFIG = [
-    { model: "deepseek-ai/DeepSeek-R1" },
-    { model: 'deepseek-ai/DeepSeek-V3' },
-    { model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B' },
-    { model: 'Qwen/QwQ-32B' },
-    { model: 'Qwen/Qwen2.5-72B-Instruct-128K' }
+    {
+        model: "deepseek-ai/DeepSeek-R1",
+        max_tokens: 16384
+    },
+    {
+        model: 'deepseek-ai/DeepSeek-V3',
+        max_tokens: 8192
+    },
+    {
+        model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
+        max_tokens: 16384
+    },
+    {
+        model: 'Qwen/QwQ-32B',
+        max_tokens: 32768
+    },
+    {
+        model: 'Qwen/Qwen2.5-72B-Instruct-128K',
+        max_tokens: 4096
+    }
 ]
 
 // 创建新的对话
 exports.createNewConversation = async (req, res) => {
-    const { message, LLMID, title, webSearch } = req.body;
+    const {
+        message = "mygo和mujica哪个好看？",
+        LLMID = 2,
+        title = "新对话",
+        webSearch = true,
+        max_tokens = 2048,
+        temperature = 0.8,
+        top_p = 0.7,
+        top_k = 50,
+        frequent_penalty = 0.5
+    } = req.body;
+    console.log('请求参数:', req.body);
+    
     if (!message) {
         return res.status(400).json({
-            error: '缺少必要参数',
+            success: false,
+            message: '缺少必要参数',
             details: 'message是必需的'
         });
     }
-    if (!LLMID || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
+    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
         return res.status(400).json({
-            error: '无效的LLMID',
+            success: false,
+            message: '无效的LLMID',
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
         });
     }
+    if (max_tokens > LLM_CONFIG[LLMID].max_tokens || max_tokens < 1) {
+        console.log(`max_tokens: ${max_tokens}, LLMID: ${LLMID}, max_tokens: ${LLM_CONFIG[LLMID].max_tokens}`);
+        
+        return res.status(400).json({
+            success: false,
+            message: '无效的max_tokens',
+            details: `max_tokens必须在1到${LLM_CONFIG[LLMID].max_tokens}之间`
+        });
+    }
+    if (temperature > 2 || temperature < 0) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的temperature',
+            details: 'temperature必须在0到2之间'
+        });
+    }
+    if (top_p > 1 || top_p < 0.1) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的top_p',
+            details: 'top_p必须在0.1到1之间'
+        });
+    }
+    if (top_k > 100 || top_k < 0) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的top_k',
+            details: 'top_k必须在0到100之间'
+        });
+    }
+    if (frequent_penalty > 2 || frequent_penalty < -2) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的frequent_penalty',
+            details: 'frequent_penalty必须在-2到2之间'
+        });
+    }
     let searchRes;
-    if (webSearch === 'true') {
+    if (webSearch) {
         try {
             searchRes = await searchController.createNewSearch(message);
             console.log('搜索结果:', searchRes);
         } catch (e) {
             console.error('创建新搜索会话失败:', e.message || '未知错误');
             return res.status(500).json({
-                error: '创建新搜索会话失败',
+                success: false,
+                message: '创建新搜索会话失败',
                 details: e.message || '未知错误'
             });
         }
@@ -47,7 +114,7 @@ exports.createNewConversation = async (req, res) => {
             userId: req.user.userId,
             conversationId: nextConversationId,
             searchId: searchRes ? searchRes.searchId : null,
-            title: title || '新对话',
+            title,
         });
         // 保存对话数据
         await Message.create({
@@ -58,7 +125,8 @@ exports.createNewConversation = async (req, res) => {
     } catch (e) {
         console.error('创建对话失败:', e);
         return res.status(500).json({
-            error: '创建对话失败',
+            success: false,
+            message: '创建对话失败',
             details: e.message || '未知错误'
         });
     }
@@ -71,7 +139,7 @@ exports.createNewConversation = async (req, res) => {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
-        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId })}\n\n`);
+        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
         // 发送响应头
         res.flushHeaders();
         const messages = [];
@@ -90,12 +158,12 @@ exports.createNewConversation = async (req, res) => {
             model,
             messages,
             stream: true,
-            max_tokens: 4096,
+            max_tokens,
             stop: null,
-            temperature: 0.8,
-            top_p: 0.7,
-            top_k: 50,
-            frequent_penalty: 0.5,
+            temperature,
+            top_p,
+            top_k,
+            frequent_penalty,
             n: 1,
             response_format: {
                 type: 'text'
@@ -244,7 +312,8 @@ exports.createNewConversation = async (req, res) => {
         if (!res.headersSent) {
             // 只有在响应头未发送时才设置状态和发送JSON
             res.status(500).json({
-                error: '处理请求时出错',
+                success: false,
+                message: '处理请求时出错',
                 details: error.message || '未知'
             });
         } else {
@@ -261,24 +330,73 @@ exports.createNewConversation = async (req, res) => {
 
 // 继续上次对话
 exports.continuePreviousConversation = async (req, res) => {
-    const { message, LLMID, webSearch } = req.body;
+    const {
+        message = "mygo和mujica哪个好看？",
+        LLMID = 2,
+        webSearch = true,
+        max_tokens = 2048,
+        temperature = 0.8,
+        top_p = 0.7,
+        top_k = 50,
+        frequent_penalty = 0.5
+    } = req.body;
     const userConversationId = parseInt(req.params.conversationId);
-    if (isNaN(userConversationId)) {
+    if (isNaN(userConversationId) || userConversationId < 1) {
         return res.status(400).json({
-            error: '无效的会话ID',
-            details: '会话ID必须是数字'
+            success: false,
+            message: '无效的会话ID',
+            details: '会话ID必须是正整数'
         });
     }
     if (!message) {
         return res.status(400).json({
-            error: '缺少必要参数',
+            success: false,
+            message: '缺少必要参数',
             details: 'message是必需的'
         });
     }
-    if (!LLMID || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
+    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
         return res.status(400).json({
-            error: '无效的LLMID',
+            success: false,
+            message: '无效的LLMID',
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
+        });
+    }
+    if (max_tokens > LLM_CONFIG[LLMID].max_tokens || max_tokens < 1) {
+        console.log(`max_tokens: ${max_tokens}, LLMID: ${LLMID}, max_tokens: ${LLM_CONFIG[LLMID].max_tokens}`);
+        
+        return res.status(400).json({
+            success: false,
+            message: '无效的max_tokens',
+            details: `max_tokens必须在1到${LLM_CONFIG[LLMID].max_tokens}之间`
+        });
+    }
+    if (temperature > 2 || temperature < 0) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的temperature',
+            details: 'temperature必须在0到2之间'
+        });
+    }
+    if (top_p > 1 || top_p < 0.1) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的top_p',
+            details: 'top_p必须在0.1到1之间'
+        });
+    }
+    if (top_k > 100 || top_k < 0) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的top_k',
+            details: 'top_k必须在0到100之间'
+        });
+    }
+    if (frequent_penalty > 2 || frequent_penalty < -2) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的frequent_penalty',
+            details: 'frequent_penalty必须在-2到2之间'
         });
     }
     try {
@@ -288,8 +406,14 @@ exports.continuePreviousConversation = async (req, res) => {
                 conversationId: userConversationId
             }
         });
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: '对话不存在或无权访问',
+            });
+        }
         let searchRes;
-        if (webSearch === 'true') {
+        if (webSearch) {
             if (!conversation.searchId) {
                 try {
                     searchRes = await searchController.createNewSearch(message);
@@ -298,7 +422,8 @@ exports.continuePreviousConversation = async (req, res) => {
                 } catch (e) {
                     console.error('创建新搜索会话失败:', e.message || '未知错误');
                     return res.status(500).json({
-                        error: '创建新搜索会话失败',
+                        success: false,
+                        message: '创建新搜索会话失败',
                         details: e.message || '未知错误'
                     });
                 }
@@ -308,17 +433,12 @@ exports.continuePreviousConversation = async (req, res) => {
                     console.log('搜索结果:', searchRes);
                 } catch (e) {
                     return res.status(500).json({
-                        error: '搜索失败',
+                        success: false,
+                        message: '搜索失败',
                         details: e.message || '未知错误'
                     });
                 }
             }
-        }
-        if (!conversation) {
-            return res.status(404).json({
-                success: false,
-                error: '对话不存在或无权访问',
-            });
         }
         const messages = await Message.findAll({
             where: { conversationId: conversation.id },
@@ -352,12 +472,12 @@ exports.continuePreviousConversation = async (req, res) => {
             model,
             messages: historyMessages,
             stream: true,
-            max_tokens: 4096,
+            max_tokens,
             stop: null,
-            temperature: 0.8,
-            top_p: 0.7,
-            top_k: 50,
-            frequent_penalty: 0.5,
+            temperature,
+            top_p,
+            top_k,
+            frequent_penalty,
             n: 1,
             response_format: {
                 type: 'text'
@@ -443,7 +563,8 @@ exports.continuePreviousConversation = async (req, res) => {
         if (!res.headersSent) {
             // 只有在响应头未发送时才设置状态和发送JSON
             res.status(500).json({
-                error: '处理请求时出错',
+                success: false,
+                message: '处理请求时出错',
                 details: error.message || '未知'
             });
         } else {
@@ -467,7 +588,7 @@ exports.getConversationsList = async (req, res) => {
         });
         if (conversations.length === 0) {
             return res.status(200).json({
-                success: false,
+                success: true,
                 message: '没有找到对话',
             });
         }
@@ -475,7 +596,8 @@ exports.getConversationsList = async (req, res) => {
     } catch (e) {
         console.error('获取对话列表失败:', e);
         res.status(500).json({
-            error: '获取对话列表失败',
+            success: false,
+            message: '获取对话列表失败',
             details: e.message || '未知错误'
         });
     }
@@ -486,7 +608,8 @@ exports.getConversationData = async (req, res) => {
         const userConversationId = parseInt(req.params.conversationId);
         if (isNaN(userConversationId)) {
             return res.status(400).json({
-                error: '无效的会话ID',
+                success: false,
+                message: '无效的会话ID',
                 details: '会话ID必须是数字'
             });
         }
@@ -504,7 +627,7 @@ exports.getConversationData = async (req, res) => {
         if (!conversation) {
             return res.status(404).json({
                 success: false,
-                message: '对话不存在或无权访问',
+                message: '对话不存在或无权访问'
             });
         }
         res.json({
@@ -514,7 +637,8 @@ exports.getConversationData = async (req, res) => {
     } catch (e) {
         console.error('获取对话消息失败:', e);
         res.status(500).json({
-            error: '获取对话消息失败',
+            success: false,
+            message: '获取对话消息失败',
             details: e.message || '未知错误'
         });
     }
@@ -526,14 +650,14 @@ exports.deleteConversation = async (req, res) => {
         if (!conversationIds || !Array.isArray(conversationIds) || conversationIds.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: '请提供有效的对话ID数组',
+                message: '请提供有效的对话ID数组'
             });
         }
         conversationIds = conversationIds.map(id => parseInt(id)).filter(id => !isNaN(id));
         if (conversationIds.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: '无效的对话ID',
+                message: '无效的对话ID'
             });
         }
         const result = await Conversation.destroy({
@@ -545,7 +669,7 @@ exports.deleteConversation = async (req, res) => {
         if (result === 0) {
             return res.status(404).json({
                 success: false,
-                message: '未找到可删除的对话或无权访问',
+                message: '未找到可删除的对话或无权访问'
             });
         }
         res.json({
@@ -556,7 +680,8 @@ exports.deleteConversation = async (req, res) => {
     } catch (e) {
         console.error('删除对话失败:', e);
         res.status(500).json({
-            error: '删除对话失败',
+            success: false,
+            message: '删除对话失败',
             details: e.message || '未知错误'
         });
     }
@@ -568,13 +693,15 @@ exports.updateConversationTitle = async (req, res) => {
         const { title } = req.body;
         if (isNaN(userConversationId)) {
             return res.status(400).json({
-                error: '无效的会话ID',
+                success: false,
+                message: '无效的会话ID',
                 details: '会话ID必须是数字'
             });
         }
         if (!title) {
             return res.status(400).json({
-                error: '缺少必要参数',
+                success: false,
+                message: '缺少必要参数',
                 details: 'title是必需的'
             });
         }
@@ -587,7 +714,7 @@ exports.updateConversationTitle = async (req, res) => {
         if (!conversation) {
             return res.status(404).json({
                 success: false,
-                message: '对话不存在或无权访问',
+                message: '对话不存在或无权访问'
             });
         }
         conversation.title = title;
@@ -601,8 +728,37 @@ exports.updateConversationTitle = async (req, res) => {
     } catch (e) {
         console.error('更新标题失败:', e);
         return res.status(500).json({
-            error: '更新标题失败',
+            success: false,
+            message: '更新标题失败',
             details: e.message || '未知错误'
         });
     }
 };
+
+exports.deleteAllConversations = async (req, res) => {
+    try {
+        const result = await Conversation.destroy({
+            where: {
+                userId: req.user.userId
+            }
+        });
+        if (result === 0) {
+            return res.status(404).json({
+                success: false,
+                message: '未找到可删除的对话或无权访问'
+            });
+        }
+        res.json({
+            success: true,
+            message: `成功删除了${result}个对话`,
+            deletedCount: result
+        });
+    } catch (e) {
+        console.error('删除所有对话失败:', e);
+        res.status(500).json({
+            success: false,
+            message: '删除所有对话失败',
+            details: e.message || '未知错误'
+        });
+    }
+}
