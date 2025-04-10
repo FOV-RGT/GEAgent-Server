@@ -6,20 +6,20 @@
 
 ## 项目结构
 
-├── app.js # 应用入口文件
-├── bin/ # 服务器启动脚本
-├── config/ # 数据库配置文件
-├── controllers/ # 控制器，处理请求逻辑
-├── env.example # .env文件的示例
-├── middleware/ # 中间件
-├── migrations/ # 数据库迁移文件
-├── models/ # 数据模型
-├── package.json # npm依赖版本控制文件
-├── public/ # 静态资源
-├── <span>README.md</span> # 项目说明文档
-├── routes/ # 路由定义
-├── seeders/ # 数据库种子文件
-└── services/ # 服务层，处理外部API通信
+├── app.js # 应用入口文件 
+├── bin/ # 服务器启动脚本 
+├── config/ # 数据库配置文件 
+├── controllers/ # 控制器，处理请求逻辑 
+├── env.example # .env文件的示例 
+├── middleware/ # 中间件 
+├── migrations/ # 数据库迁移文件 
+├── models/ # 数据模型 
+├── package.json # npm依赖版本控制文件 
+├── public/ # 静态资源 
+├── <span>README.md</span> # 项目说明文档 
+├── routes/ # 路由定义 
+├── seeders/ # 数据库种子文件 
+└── services/ # 服务层，处理外部API通信 
 
 ---
 

@@ -67,10 +67,10 @@ module.exports = {
 				createdAt: new Date(),
 				updatedAt: new Date()
 			};
-			const Rikichan = {
+			const Riki = {
 				userId: 4,
-				username: 'Rikichan',
-				email: 'Rikichan@qq.com',
+				username: 'Riki',
+				email: 'Riki@qq.com',
 				password: hashedPassword,
 				fullName: '椎名立希',
 				avatarUrl: 'https://example.com/avatar/admin.jpg',
@@ -93,7 +93,7 @@ module.exports = {
 				createdAt: new Date(),
 				updatedAt: new Date()
 			};
-			users.push(Anonchan, Soyorin, Tomorin, Rikichan, Ranachan);
+			users.push(Anonchan, Soyorin, Tomorin, Riki, Ranachan);
 			for (let i = 1; i <= 10; i++) {
 				const user = {
 					userId: 100 + i,
@@ -154,10 +154,10 @@ module.exports = {
 				createdAt: new Date(),
 				updatedAt: new Date()
 			};
-			const Rikichan = {
+			const Riki = {
 				userId: 4,
-				username: 'Rikichan',
-				email: 'Rikichan@qq.com',
+				username: 'Riki',
+				email: 'Riki@qq.com',
 				password: null,
 				fullName: '椎名立希',
 				avatarUrl: 'https://example.com/avatar/admin.jpg',
@@ -180,7 +180,7 @@ module.exports = {
 				createdAt: new Date(),
 				updatedAt: new Date()
 			};
-			users.push(Anonchan, Soyorin, Tomorin, Rikichan, Ranachan);
+			users.push(Anonchan, Soyorin, Tomorin, Riki, Ranachan);
 			for (let i = 1; i <= 10; i++) {
 				const user = {
 					userId: 100 + i,
