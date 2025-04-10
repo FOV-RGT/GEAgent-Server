@@ -4,6 +4,8 @@
  * Module dependencies.
  */
 
+require('dotenv').config();
+
 var app = require('../app');
 var debug = require('debug')('geseek-server:server');
 var http = require('http');
@@ -88,4 +90,5 @@ function onListening() {
     : 'port ' + addr.port;
   debug('Listening on ' + bind);
   console.log(`服务器已启动，端口：${addr.port}`);
+  console.log(`当前环境：${JSON.stringify(process.env.NODE_ENV)}`);
 }
