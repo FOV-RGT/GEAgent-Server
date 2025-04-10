@@ -105,21 +105,83 @@ exports.createNewConversation = async (req, res) => {
         let resReasoningContent = '';
         // 发送请求
         const response = await client.post('/chat/completions', data);
+        // 添加一个缓冲区变量
+        let dataBuffer = '';
         // 处理流式响应
+        // response.data.on('data', (chunk) => {
+        //     const chunkText = chunk.toString();
+        //     try {
+        //         if (chunkText.includes('[DONE]')) {
+        //             res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        //             return;
+        //         }
+        //         console.log('chunkText:', chunkText);
+        //         const dataChunks = chunkText.split('\n\n').filter(chunk => chunk.trim() !== '');
+        //         for (const dataChunk of dataChunks) {
+        //             // 处理每个独立的数据块
+        //             if (dataChunk.trim().startsWith('data: ')) {
+        //                 try {
+        //                     // 提取JSON部分
+        //                     const jsonText = dataChunk.trim().substring(6);
+        //                     const parsedData = JSON.parse(jsonText);
+        //                     if (parsedData.choices && parsedData.choices.length > 0) {
+        //                         const delta = parsedData.choices[0].delta;
+        //                         const content = delta.content || null;
+        //                         const reasoning_content = delta.reasoning_content || null;
+        //                         if (content) {
+        //                             resContent += content;
+        //                         }
+        //                         if (reasoning_content) {
+        //                             resReasoningContent += reasoning_content;
+        //                         }
+        //                         // 只转发有内容的部分
+        //                         if (content || reasoning_content) {
+        //                             res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
+        //                         }
+        //                     }
+        //                 } catch (parseError) {
+        //                     // 单个数据块解析错误，记录并继续处理其他块
+        //                     console.error('解析JSON块失败:', parseError.message);
+        //                     console.error('问题数据块:', dataChunk);
+        //                     // 作为原始数据发送
+        //                     res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
+        //                 }
+        //             } else {
+        //                 // 非标准格式数据发送为原始数据
+        //                 res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
+        //             }
+        //         }
+        //     } catch (e) {
+        //         // 整体处理异常
+        //         console.error('处理响应数据错误:', e);
+        //         console.error('原始数据:', chunkText);
+        //         res.write(`data: ${JSON.stringify({ error: '数据处理错误: ' + e.message })}\n\n`);
+        //     }
+        // });
         response.data.on('data', (chunk) => {
             const chunkText = chunk.toString();
             try {
+                // 检查是否完成
                 if (chunkText.includes('[DONE]')) {
                     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                     return;
                 }
-                const dataChunks = chunkText.split('\n\n').filter(chunk => chunk.trim() !== '');
-                for (const dataChunk of dataChunks) {
-                    // 处理每个独立的数据块
-                    if (dataChunk.trim().startsWith('data: ')) {
+                // 将新数据添加到缓冲区
+                dataBuffer += chunkText;
+                // 尝试提取并处理完整的数据块
+                while (true) {
+                    // 寻找完整的数据块 (data: {...}\n\n 格式)
+                    const endOfBlockIndex = dataBuffer.indexOf('\n\n');
+                    if (endOfBlockIndex === -1) break; // 没有找到完整块，退出循环
+                    const dataBlock = dataBuffer.substring(0, endOfBlockIndex);
+                    dataBuffer = dataBuffer.substring(endOfBlockIndex + 2); // 移除已处理的数据块
+                    // 现在处理提取出的完整数据块
+                    if (dataBlock.trim().startsWith('data: ')) {
                         try {
                             // 提取JSON部分
-                            const jsonText = dataChunk.trim().substring(6);
+                            const jsonStart = dataBlock.indexOf('{');
+                            if (jsonStart === -1) continue; // 没有找到JSON开始，跳过这个块
+                            const jsonText = dataBlock.substring(jsonStart);
                             const parsedData = JSON.parse(jsonText);
                             if (parsedData.choices && parsedData.choices.length > 0) {
                                 const delta = parsedData.choices[0].delta;
@@ -137,19 +199,18 @@ exports.createNewConversation = async (req, res) => {
                                 }
                             }
                         } catch (parseError) {
-                            // 单个数据块解析错误，记录并继续处理其他块
                             console.error('解析JSON块失败:', parseError.message);
-                            console.error('问题数据块:', dataChunk);
-                            // 作为原始数据发送
-                            res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
+                            console.error('问题数据块:', dataBlock);
+                            res.write(`data: ${JSON.stringify({ raw: dataBlock })}\n\n`);
                         }
-                    } else {
-                        // 非标准格式数据发送为原始数据
-                        res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
                     }
                 }
+                // 检查缓冲区是否过大 (防止内存泄漏)
+                if (dataBuffer.length > 1000000) { // 1MB限制
+                    console.warn('缓冲区过大，清空');
+                    dataBuffer = dataBuffer.substring(dataBuffer.length - 100000); // 保留最后100KB
+                }
             } catch (e) {
-                // 整体处理异常
                 console.error('处理响应数据错误:', e);
                 console.error('原始数据:', chunkText);
                 res.write(`data: ${JSON.stringify({ error: '数据处理错误: ' + e.message })}\n\n`);
