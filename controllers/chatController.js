@@ -2,45 +2,22 @@ const { client } = require('../services/chatService_stream');
 const searchController = require('../controllers/searchController');
 const { Conversation, Message } = require('../models');
 const { Op } = require('sequelize');
-
-const LLM_CONFIG = [
-    {
-        model: "deepseek-ai/DeepSeek-R1",
-        max_tokens: 16384
-    },
-    {
-        model: 'deepseek-ai/DeepSeek-V3',
-        max_tokens: 8192
-    },
-    {
-        model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
-        max_tokens: 16384
-    },
-    {
-        model: 'Qwen/QwQ-32B',
-        max_tokens: 32768
-    },
-    {
-        model: 'Qwen/Qwen2.5-72B-Instruct-128K',
-        max_tokens: 4096
-    }
-]
+const { validationResult } = require('express-validator');
+const { LLM_CONFIG } = require('../middleware/config');
 
 // 创建新的对话
 exports.createNewConversation = async (req, res) => {
-    const {
-        message = "mygo和mujica哪个好看？",
-        LLMID = 2,
-        title = "新对话",
-        webSearch = true,
-        max_tokens = 2048,
-        temperature = 0.8,
-        top_p = 0.7,
-        top_k = 50,
-        frequent_penalty = 0.5
-    } = req.body;
-    console.log('请求参数:', req.body);
-    
+    const error = validationResult(req);
+    if (!error.isEmpty()) {
+        return res.status(400).json({
+            success: false,
+            message: '参数验证失败',
+            details: error.array()
+        });
+    }
+    const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话", webSearch = true} = req.body;
+    const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
+    console.log(req.configs);
     if (!message) {
         return res.status(400).json({
             success: false,
@@ -330,16 +307,8 @@ exports.createNewConversation = async (req, res) => {
 
 // 继续上次对话
 exports.continuePreviousConversation = async (req, res) => {
-    const {
-        message = "mygo和mujica哪个好看？",
-        LLMID = 2,
-        webSearch = true,
-        max_tokens = 2048,
-        temperature = 0.8,
-        top_p = 0.7,
-        top_k = 50,
-        frequent_penalty = 0.5
-    } = req.body;
+    const { message = "mygo和mujica哪个好看？", LLMID = 2, webSearch = true} = req.body;
+    const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
     const userConversationId = parseInt(req.params.conversationId);
     if (isNaN(userConversationId) || userConversationId < 1) {
         return res.status(400).json({
@@ -688,6 +657,14 @@ exports.deleteConversation = async (req, res) => {
 };
 
 exports.updateConversationTitle = async (req, res) => {
+    const error = validationResult(req);
+    if (!error.isEmpty()) {
+        return res.status(400).json({
+            success: false,
+            message: '参数验证失败',
+            details: error.array()
+        });
+    }
     try {
         const userConversationId = parseInt(req.params.conversationId);
         const { title } = req.body;

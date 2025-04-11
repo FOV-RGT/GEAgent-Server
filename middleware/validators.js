@@ -58,3 +58,25 @@ exports.validateUpdatePassword = [
         .isLength({ min: 8, max: 100 }).withMessage('新密码长度必须在8-100字符之间')
         .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('新密码必须包含大小写字母和数字')
 ]
+
+exports.validateConfig = [
+    check('configs')
+        .exists().withMessage('configs对象是必需的')
+        .isObject().withMessage('configs必须是一个对象'),
+    check('configs.temperature')
+        .optional()
+        .isFloat({ min: 0, max: 2 }).withMessage('temperature 必须是 0 到 2 之间的浮点数')
+        .customSanitizer(value => parseFloat(value)),
+    check('configs.top_p')
+        .optional()
+        .isFloat({ min: 0.1, max: 1.0 }).withMessage('top_p 必须是 0.1 到 1.0 之间的浮点数')
+        .customSanitizer(value => parseFloat(value)),
+    check('configs.top_k')
+        .optional()
+        .isInt({ min: 0, max: 100 }).withMessage('top_k 必须是 0 到 100 之间的整数')
+        .customSanitizer(value => parseInt(value)),
+    check('configs.frequent_penalty')
+        .optional()
+        .isFloat({ min: -2, max: 2 }).withMessage('frequent_penalty 必须是 -2 到 2 之间的浮点数')
+        .customSanitizer(value => parseFloat(value))
+]
