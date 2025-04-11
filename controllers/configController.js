@@ -61,3 +61,37 @@ exports.updateConfig = async (req, res) => {
         });
     }
 }
+
+exports.getAllConfigs = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const configs = await UserConfig.findAll({
+            where: {
+                userId
+            }
+        });
+        if (configs.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: '暂无LLM设置'
+            });
+        }
+        res.json({
+            success: true,
+            configs: configs.map(config => ({
+                LLMID: config.LLMID,
+                max_tokens: config.max_tokens,
+                temperature: config.temperature,
+                top_p: config.top_p,
+                top_k: config.top_k,
+                frequent_penalty: config.frequent_penalty
+            }))
+        })
+    } catch (e) {
+        return res.status(500).json({
+            success: false, 
+            message: '获取用户配置失败',
+            details: e.message || '未知错误'
+        });
+    }
+}
