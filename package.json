@@ -1,6 +1,6 @@
 {
   "name": "geseek-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "scripts": {
     "start:dev": "cross-env NODE_ENV=development nodemon ./bin/www",
@@ -26,6 +26,7 @@
     "db:drop:prod": "cross-env NODE_ENV=production sequelize-cli db:drop"
   },
   "dependencies": {
+    "ali-oss": "^6.22.0",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "~1.4.4",
@@ -36,9 +37,11 @@
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "~1.9.1",
+    "multer": "^1.4.5-lts.2",
     "mysql2": "^3.14.0",
     "nodemon": "^3.1.9",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"

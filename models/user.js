@@ -74,7 +74,7 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(20),
             allowNull: true
         },
-        avatarUrl: {
+        avatarId: {
             type: DataTypes.STRING(255),
             allowNull: true
         },

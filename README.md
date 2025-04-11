@@ -50,8 +50,14 @@
 > JWT_SECRET可参照以下方式创建
 ```js
 // 于终端中运行
+
+// 进入node环境
 node
+
+// 引入crypto库
 const crypto = require('crypto');
+
+// 输出32位随机字符串
 console.log(crypto.randomBytes(32).toString('hex'));
 ```
 ---
@@ -88,13 +94,11 @@ console.log(crypto.randomBytes(32).toString('hex'));
 # 安装项目依赖包
 npm i
 
-
 # 请根据运行环境选择<NODE_ENV>
 # <NODE_ENV>枚举值：development test production
 # 分别对应 开发环境 测试环境 生产环境
 # 开发环境与测试环境下种子填充的用户密码全为固定值 123123
 # 生产环境下种子填充的用户信息将会是12位的随机强密码，将于终端或服务器日志中输出相应的角色、账号、密码
-
 
 # 创建数据库
 npx sequelize-cli db:create --env <NODE_ENV> --charset utf8mb4 --collate utf8mb4_general_ci
@@ -140,7 +144,7 @@ npm run start:prod
 
 ### 跨域问题
 
-如遇到跨域问题，请检查前端请求源是否被后端允许。项目使用了 CORS 中间件处理跨域请求。
+如遇到跨域问题，请检查前端请求源是否被后端允许。项目使用了 CORS 中间件处理跨域请求。若服务器反向代理后端服务，建议于代理层配置跨域设置，并移除后端服务所使用的 CORS 中间件，以避免重复添加响应头所造成的潜在配置冲突问题。
 
 ### 认证错误
 

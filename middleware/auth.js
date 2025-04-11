@@ -9,7 +9,7 @@ const authenticateJWT = (req, res, next) => {
             if (err) {
                 return res.status(403).json({
                     success: false,
-                    message: 'Token无效或已过期',
+                    message: 'Token无效或已过期'
                 });
             }
             req.user = user;

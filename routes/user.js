@@ -2,7 +2,16 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { authenticateJWT, authorizeRole } = require('../middleware/auth');
-const { validateLogin, validateRegister, validateUserCreation, validateUpdateInfo, validateUpdatePassword } = require('../middleware/validators');
+const {
+    validateLogin,
+    validateRegister,
+    validateUserCreation,
+    validateUpdateInfo,
+    validateUpdatePassword,
+
+} = require('../middleware/validators');
+const { param, body } = require('express-validator');
+const ossController = require('../controllers/ossController');
 
 // 登录路由
 router.post('/login', validateLogin, authController.login);
@@ -20,5 +29,11 @@ router.get('/refreshToken', authenticateJWT, authController.refreshToken);
 router.put('/updateInfo/:userId', authenticateJWT, validateUpdateInfo, authController.updateUser);
 // 更新密码路由
 router.put('/updatePassword/:userId', authenticateJWT, validateUpdatePassword, authController.updatePassword);
+
+// 上传头像路由
+router.post('/avatar', authenticateJWT, ossController.uploadAvatar);
+
+// 获取头像路由
+router.get('/avatar', authenticateJWT, ossController.getAvatarUrl);
 
 module.exports = router;
