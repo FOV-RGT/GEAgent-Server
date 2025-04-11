@@ -353,6 +353,7 @@ exports.createUser = async (req, res) => {
     }
 }
 
+// 更新用户信息
 exports.updateUser = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -421,6 +422,7 @@ exports.updateUser = async (req, res) => {
     }
 };
 
+// 更新密码
 exports.updatePassword = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

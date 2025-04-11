@@ -3,12 +3,13 @@ const router = express.Router();
 const { authenticateJWT } = require('../middleware/auth');
 const { validateConversationTitle } = require('../middleware/validators');
 const chatController = require('../controllers/chatController');
+const { findConfig } = require('../middleware/config');
 
 // 创建新的对话
-router.post('/create', authenticateJWT, validateConversationTitle, chatController.createNewConversation);
+router.post('/create', authenticateJWT, validateConversationTitle, findConfig, chatController.createNewConversation);
 
 // 继续现有对话
-router.post('/continue/:conversationId', authenticateJWT, chatController.continuePreviousConversation);
+router.post('/continue/:conversationId', authenticateJWT, findConfig, chatController.continuePreviousConversation);
 
 // 获取对话列表
 router.get('/list', authenticateJWT, chatController.getConversationsList);

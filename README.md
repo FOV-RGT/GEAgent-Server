@@ -72,9 +72,11 @@ console.log(crypto.randomBytes(32).toString('hex'));
 - **前缀**
   - **`start` - 启动服务器**
   - **`db:setup` - 一键完成数据库初始化，无需执行`db:create`等后续操作**
+  - **`db:reset` - 一键重置数据库**
   - **`db:create` - 创建数据库**
   - **`db:migrate` - 运行表迁移**
   - **`db:seed` - 填充种子**
+  - **`db:drop` - 删除数据库**
 - **后缀**
   - **`^~:dev` - 开发环境**
   - **`^~:test` - 测试环境**

@@ -10,6 +10,10 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: 'userId', 
                 as: 'conversations' 
             });
+            User.hasMany(models.UserConfig, {
+                foreignKey: 'userId', 
+                as: 'configs'
+            })
         }
         // 验证密码方法
         async validatePassword(password) {
