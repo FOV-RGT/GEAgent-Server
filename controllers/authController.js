@@ -62,7 +62,7 @@ exports.login = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 fullName: user.fullName,
-                avatarUrl: user.avatarUrl,
+                avatarId: user.avatarId,
                 role: user.role
             }
         });
@@ -163,7 +163,7 @@ exports.getCurrentUser = async (req, res) => {
                 'username',
                 'email',
                 'fullName',
-                'avatarUrl',
+                'avatarId',
                 'role',
                 'lastLogin',
                 'isActive',
@@ -201,7 +201,7 @@ exports.getAllUsers = async (req, res) => {
                 'username',
                 'email',
                 'fullName',
-                'avatarUrl',
+                'avatarId',
                 'role',
                 'lastLogin',
                 'isActive',
@@ -282,7 +282,7 @@ exports.createUser = async (req, res) => {
                 errors: errors.array()
             });
         }
-        const { username, email, password, fullName, avatarUrl, role, userId } = req.body;
+        const { username, email, password, fullName, role, userId } = req.body;
         const existingUsername = await User.findOne({
             where: { username }
         });
@@ -326,7 +326,6 @@ exports.createUser = async (req, res) => {
             password,
             fullName: fullName || null,
             userId: userId || await User.getNewUserId(),
-            avatarUrl: avatarUrl || null,
             role: role || 'admin', // 默认角色为管理员
             isActive: true // 默认激活状态
         });
@@ -339,7 +338,6 @@ exports.createUser = async (req, res) => {
                 password,
                 email: newUser.email,
                 fullName: newUser.fullName,
-                avatarUrl: newUser.avatarUrl,
                 role: newUser.role
             }
         })
@@ -395,7 +393,7 @@ exports.updateUser = async (req, res) => {
                 if (existingEmail) {
                     return res.status(400).json({
                         success: false,
-                        message: '邮箱已被其他账号使用'
+                        message: '邮箱已被注册'
                     });
                 }
                 user.email = email.trim();

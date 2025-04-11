@@ -24,6 +24,7 @@ exports.validateRegister = [
     check('fullName')
         .optional({ checkFalsy: true })
         .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符')
+        .escape()
 ]
 
 // 用户创建验证
@@ -37,7 +38,7 @@ exports.validateUserCreation = [
 // 验证对话标题
 exports.validateConversationTitle = [
     check('title')
-        .isLength({ max: 50 }).withMessage('标题长度不能超过50个字符')
+        .isLength({ max: 20 }).withMessage('标题长度不能超过20个字符')
         .matches(/^[^<>]*$/).withMessage('标题不能包含HTML标签字符')
         .trim()
         .escape() // 转义HTML特殊字符，防止XSS
@@ -50,6 +51,7 @@ exports.validateUpdateInfo = [
     check('fullName')
         .optional({ checkFalsy: true })
         .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符')
+        .escape()
 ]
 
 exports.validateUpdatePassword = [

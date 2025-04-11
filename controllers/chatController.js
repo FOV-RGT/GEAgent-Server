@@ -12,7 +12,7 @@ exports.createNewConversation = async (req, res) => {
         return res.status(400).json({
             success: false,
             message: '参数验证失败',
-            details: error.array()
+            errors: error.array()
         });
     }
     const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话", webSearch = true} = req.body;
@@ -30,43 +30,6 @@ exports.createNewConversation = async (req, res) => {
             success: false,
             message: '无效的LLMID',
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
-        });
-    }
-    if (max_tokens > LLM_CONFIG[LLMID].max_tokens || max_tokens < 1) {
-        console.log(`max_tokens: ${max_tokens}, LLMID: ${LLMID}, max_tokens: ${LLM_CONFIG[LLMID].max_tokens}`);
-        
-        return res.status(400).json({
-            success: false,
-            message: '无效的max_tokens',
-            details: `max_tokens必须在1到${LLM_CONFIG[LLMID].max_tokens}之间`
-        });
-    }
-    if (temperature > 2 || temperature < 0) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的temperature',
-            details: 'temperature必须在0到2之间'
-        });
-    }
-    if (top_p > 1 || top_p < 0.1) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的top_p',
-            details: 'top_p必须在0.1到1之间'
-        });
-    }
-    if (top_k > 100 || top_k < 0) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的top_k',
-            details: 'top_k必须在0到100之间'
-        });
-    }
-    if (frequent_penalty > 2 || frequent_penalty < -2) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的frequent_penalty',
-            details: 'frequent_penalty必须在-2到2之间'
         });
     }
     let searchRes;
@@ -329,43 +292,6 @@ exports.continuePreviousConversation = async (req, res) => {
             success: false,
             message: '无效的LLMID',
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
-        });
-    }
-    if (max_tokens > LLM_CONFIG[LLMID].max_tokens || max_tokens < 1) {
-        console.log(`max_tokens: ${max_tokens}, LLMID: ${LLMID}, max_tokens: ${LLM_CONFIG[LLMID].max_tokens}`);
-        
-        return res.status(400).json({
-            success: false,
-            message: '无效的max_tokens',
-            details: `max_tokens必须在1到${LLM_CONFIG[LLMID].max_tokens}之间`
-        });
-    }
-    if (temperature > 2 || temperature < 0) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的temperature',
-            details: 'temperature必须在0到2之间'
-        });
-    }
-    if (top_p > 1 || top_p < 0.1) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的top_p',
-            details: 'top_p必须在0.1到1之间'
-        });
-    }
-    if (top_k > 100 || top_k < 0) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的top_k',
-            details: 'top_k必须在0到100之间'
-        });
-    }
-    if (frequent_penalty > 2 || frequent_penalty < -2) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的frequent_penalty',
-            details: 'frequent_penalty必须在-2到2之间'
         });
     }
     try {
@@ -662,7 +588,7 @@ exports.updateConversationTitle = async (req, res) => {
         return res.status(400).json({
             success: false,
             message: '参数验证失败',
-            details: error.array()
+            errors: error.array()
         });
     }
     try {

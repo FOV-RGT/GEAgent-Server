@@ -32,7 +32,7 @@ module.exports = {
                 type: Sequelize.STRING(20),
                 allowNull: true
             },
-            avatarUrl: {
+            avatarId: {
                 type: Sequelize.STRING(255),
                 allowNull: true
             },
