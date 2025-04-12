@@ -1,21 +1,27 @@
-const { Client } = require('@modelcontextprotocol/sdk/client');
-const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio');
 
 let mcpClient = null;
 let initPromise = null;
 
-async function initMcpClient() {
+async function initMCPClient() {
     if (!initPromise) {
         initPromise = (async () => {
-            const transport = new StdioClientTransport({
-                command: 'node',
-                args: ['./mcp-server'], // 替换为您的MCP服务器路径
-            });
+            const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+            const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
+            console.log('初始化MCP Client...');
             mcpClient = new Client({
                 name: 'my-express-client',
                 version: '1.0.0',
             });
-            await mcpClient.connect(transport);
+            const jsTransport = new StdioClientTransport({
+                command: 'node',
+                args: ['services/mcp-server.mjs'],
+            });
+            const biliTransport = new StdioClientTransport({
+                command: "python",
+                args: ["services/biliSearch.py"],
+            });
+            await mcpClient.connect(jsTransport);
+            await mcpClient.connect(biliTransport);
             return mcpClient;
         })();
     }
@@ -23,5 +29,5 @@ async function initMcpClient() {
 }
 
 module.exports = {
-    getMcpClient: initMcpClient,
+    getMCPClient: initMCPClient,
 };

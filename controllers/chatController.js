@@ -32,23 +32,30 @@ exports.createNewConversation = async (req, res) => {
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
         });
     }
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
     let searchRes;
     if (webSearch) {
         try {
             searchRes = await searchController.createNewSearch(message);
+            res.write(`data: ${JSON.stringify({ webSearchSuccess: true })}\n\n`);
             console.log('搜索结果:', searchRes);
         } catch (e) {
             console.error('创建新搜索会话失败:', e.message || '未知错误');
-            return res.status(500).json({
+            return res.write(`data: ${JSON.stringify({
                 success: false,
                 message: '创建新搜索会话失败',
                 details: e.message || '未知错误'
-            });
+            })}\n\n`);
         }
     }
     // 创建新的对话
     let conversation;
     const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
+    res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
     try {
         conversation = await Conversation.create({
             userId: req.user.userId,
@@ -64,24 +71,17 @@ exports.createNewConversation = async (req, res) => {
         });
     } catch (e) {
         console.error('创建对话失败:', e);
-        return res.status(500).json({
+        return res.write(`data: ${JSON.stringify({
             success: false,
             message: '创建对话失败',
             details: e.message || '未知错误'
-        });
+        })}\n\n`);
     }
     try {
         const model = LLM_CONFIG[LLMID].model;
         const parsedMessage = message.trim();
         console.log(`请求模型: ${model}`);
         console.log(`请求消息: ${parsedMessage}`);
-        // 设置响应头以支持SSE
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
-        // 发送响应头
-        res.flushHeaders();
         const messages = [];
         messages.push({
             role: 'user',
@@ -310,31 +310,39 @@ exports.continuePreviousConversation = async (req, res) => {
                 message: '对话不存在或无权访问',
             });
         }
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
         let searchRes;
         if (webSearch) {
             if (!conversation.searchId) {
                 try {
                     searchRes = await searchController.createNewSearch(message);
+                    res.write(`data: ${JSON.stringify({ webSearchSuccess: true })}\n\n`);
+                    console.log('搜索结果:', searchRes);
                     conversation.searchId = searchRes.searchId;
                     await conversation.save();
                 } catch (e) {
                     console.error('创建新搜索会话失败:', e.message || '未知错误');
-                    return res.status(500).json({
+                    return res.write(`data: ${JSON.stringify({
                         success: false,
                         message: '创建新搜索会话失败',
                         details: e.message || '未知错误'
-                    });
+                    })}\n\n`);
                 }
             } else {
                 try {
                     searchRes = await searchController.search(message, conversation.searchId);
+                    res.write(`data: ${JSON.stringify({ webSearchSuccess: true })}\n\n`);
                     console.log('搜索结果:', searchRes);
                 } catch (e) {
-                    return res.status(500).json({
+                    return res.write(`data: ${JSON.stringify({
                         success: false,
                         message: '搜索失败',
                         details: e.message || '未知错误'
-                    });
+                    })}\n\n`);
                 }
             }
         }
@@ -362,10 +370,7 @@ exports.continuePreviousConversation = async (req, res) => {
             });
         }
         const model = LLM_CONFIG[LLMID].model;
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
+        
         const data = {
             model,
             messages: historyMessages,
@@ -448,7 +453,7 @@ exports.continuePreviousConversation = async (req, res) => {
         // 处理流错误
         response.data.on('error', err => {
             console.error('流错误:', err);
-            res.write(`${JSON.stringify({ error: '流处理出错: ' + err.message })}\n\n`);
+            res.write(`data: ${JSON.stringify({ error: '流处理出错: ' + err.message })}\n\n`);
             res.end();
         });
         response.data.on('end', async () => {

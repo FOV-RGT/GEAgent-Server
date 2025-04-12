@@ -1,5 +1,17 @@
 const { client } = require('../services/searchService');
 require('dotenv').config();
+const { getMCPClient } = require('../services/mcp-client');
+
+let MCPClient = null;
+getMCPClient()
+    .then((client) => {
+        MCPClient = client;
+        console.log('MCP初始化成功');
+    })
+    .catch(err => {
+        console.error('初始化MCP Client失败：', err);
+        return null;
+    });
 
 exports.createNewSearch = async (query) => {
     try {
@@ -32,3 +44,29 @@ exports.search = async (query, conversation_id) => {
         throw new Error('搜索失败: ', e.message || '未知错误');  
     }
 };
+
+const getToolslist = async () => {
+    const result = await MCPClient.listTools();
+    const tools = result.tools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.inputSchema
+    }));
+    return tools;
+}
+
+exports.getMCPToolslist = async (req, res) => {
+    try {
+        res.json({
+            success: true,
+            tools: await getToolslist()
+        })
+    } catch (e) {
+        console.error('获取工具列表失败:', e);
+        res.status(500).json({
+            success: false,
+            message: '获取工具列表失败',
+            details: e.message || '未知错误'
+        });
+    }
+}
