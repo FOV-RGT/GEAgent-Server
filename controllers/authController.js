@@ -58,11 +58,9 @@ exports.login = async (req, res) => {
             success: true,
             token,
             user: {
-                userId: user.userId,
                 username: user.username,
                 email: user.email,
                 fullName: user.fullName,
-                avatarId: user.avatarId,
                 role: user.role
             }
         });
@@ -137,7 +135,6 @@ exports.register = async (req, res) => {
             success: true,
             token,
             user: {
-                userId: newUser.userId,
                 username: newUser.username,
                 email: newUser.email,
                 fullName: newUser.fullName,
@@ -159,7 +156,6 @@ exports.getCurrentUser = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
             attributes: [
-                'userId',
                 'username',
                 'email',
                 'fullName',
@@ -229,7 +225,7 @@ exports.refreshToken = async (req, res) => {
         const user = await User.findOne({
             where: {
                 id: req.user.id,
-                isActive: true // 确保账号处于激活状态
+                isActive: true
             },
             attributes: [
                 'id',

@@ -40,12 +40,16 @@
  -->
 | 变量名 | 必填 | 说明 | 示例值 |
 |:-:|:-:|:-:|:-:|
-| PORT | 是 | 服务运行的端口 | 3000 |
-| NODE_ENV | 是 | 运行环境 | development |
+| PORT | 否 | 服务运行的端口 | 3000 |
+| NODE_ENV | 否 | 运行环境 | development |
 | JWT_SECRET | 是 | JWT签名密钥 | 399f5e625a4... |
 | CHAT_API_KEY | 是 | 硅基流动API密钥 | sk-tqulpvl... |
 | SEARCH_API_KEY | 是 | 百度千帆API密钥 | bce-v3/ALT... |
 | SEARCH_APP_ID | 是 | 百度千帆`AppBuilder`创建应用并发布后的`app_id` | 200d45e5-7b... |
+| OSS_ACCESS_KEY_ID | 是 | 阿里云服务ACCESS_KEY_ID | MsqgQ... |
+| OSS_ACCESS_KEY_SECRET | 是 | 阿里云服务ACCESS_KEY_SECRET | mh3qqNt1D... |
+| OSS_REGION | 是 | 阿里云OSS Bucket REGION | oss-cn-shenzhen |
+| OSS_BUCKET_NAME | 是 | 阿里云OSS Bucket Name | geseekbucket |
 
 > JWT_SECRET可参照以下方式创建
 ```js

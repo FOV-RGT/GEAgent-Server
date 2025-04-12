@@ -99,7 +99,7 @@ exports.getAvatarUrl = async (req, res) => {
             });
         }
         if (!user.avatarId) {
-            return res.status(404).json({
+            return res.json({
                 success: false,
                 message: '尚未上传头像'
             });
