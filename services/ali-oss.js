@@ -5,10 +5,10 @@ const client = new OSS({
     accessKeyId: process.env.OSS_ACCESS_KEY_ID,
     accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET,
     region: process.env.OSS_REGION,
-    authorizationV4: true,
     bucket: process.env.OSS_BUCKET_NAME,
+    authorizationV4: true,
     secure: true,
-    timeout: 60000
+    timeout: 20000
 });
 
 const getSignedUrl = async (objectName, expires = 3600) => {

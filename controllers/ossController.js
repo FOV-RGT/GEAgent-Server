@@ -1,5 +1,4 @@
 const { getSignedUrl, uploadFile, client } = require('../services/ali-oss');
-const { validationResult } = require('express-validator');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');

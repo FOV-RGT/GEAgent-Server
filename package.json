@@ -3,6 +3,7 @@
   "version": "0.3.2",
   "private": true,
   "scripts": {
+    "build": "tsc && chmod 755 build/index.js",
     "start:dev": "cross-env NODE_ENV=development nodemon ./bin/www",
     "start:test": "cross-env NODE_ENV=test nodemon ./bin/www",
     "start:prod": "cross-env NODE_ENV=production nodemon ./bin/www",
@@ -26,13 +27,15 @@
     "db:drop:prod": "cross-env NODE_ENV=production sequelize-cli db:drop"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.9.0",
     "ali-oss": "^6.22.0",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
     "debug": "~2.6.9",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
