@@ -21,4 +21,6 @@ app.use(cors());
 app.use('/api', indexRouter);
 app.use('/api/test', testRouter);
 
+app.listen(3001);
+
 module.exports = app;
