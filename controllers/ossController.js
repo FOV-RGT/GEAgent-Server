@@ -60,15 +60,14 @@ exports.uploadAvatar = async (req, res) => {
                 });
             }
             if (user.avatarId) {
-                const oldPath = `users/${user.userId}/${user.avatarId}`;
-                await client.delete(oldPath);
+                const oldPath = `${process.env.NODE_ENV}/users_avatar/${user.userId}/${user.avatarId}`;
+                await client.delete(oldPath).catch(() => false);
             }
             const ext = path.extname(req.file.originalname);
             const fileName = `${uuidv4()}${ext}`;
-            const userDir = req.user ? `users/${req.user.userId}` : 'public';
+            const userDir = req.user ? `${process.env.NODE_ENV}/users_avatar/${req.user.userId}` : 'public';
             const fileContent = fs.readFileSync(req.file.path);
             const result = await uploadFile(fileContent, fileName, userDir);
-            fs.unlinkSync(req.file.path);
             const signedUrl = await getSignedUrl(result.path, 86400);
             if (req.user) {
                 await User.update({ avatarId: fileName }, {
@@ -85,6 +84,14 @@ exports.uploadAvatar = async (req, res) => {
                 message: '上传文件失败',
                 details: e.message || '未知错误'
             });
+        } finally {
+            if (req.file && req.file.path) {
+                try {
+                    fs.unlinkSync(req.file.path);
+                } catch (unlinkError) {
+                    console.error(`删除临时文件失败: ${unlinkError.message}`);
+                }
+            }
         }
     })
 }
@@ -104,7 +111,7 @@ exports.getAvatarUrl = async (req, res) => {
                 message: '尚未上传头像'
             });
         }
-        const path = `users/${user.userId}/${user.avatarId}`;
+        const path = `${process.env.NODE_ENV}/users_avatar/${user.userId}/${user.avatarId}`;
         console.log(path);
         const signedUrl = await getSignedUrl(path, 86400);
         res.json({
