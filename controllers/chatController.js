@@ -474,6 +474,7 @@ exports.continuePreviousConversation = async (req, res) => {
     }
 };
 
+// 获取对话列表
 exports.getConversationsList = async (req, res) => {
     try {
         const conversations = await Conversation.findAll({
@@ -482,8 +483,8 @@ exports.getConversationsList = async (req, res) => {
             attributes: ['id', 'conversationId', 'title', 'createdAt', 'updatedAt'],
         });
         if (conversations.length === 0) {
-            return res.status(200).json({
-                success: true,
+            return res.json({
+                success: false,
                 message: '没有找到对话',
             });
         }
@@ -498,6 +499,7 @@ exports.getConversationsList = async (req, res) => {
     }
 };
 
+// 获取单个对话数据
 exports.getConversationData = async (req, res) => {
     try {
         const userConversationId = parseInt(req.params.conversationId);
@@ -539,6 +541,7 @@ exports.getConversationData = async (req, res) => {
     }
 };
 
+// 删除单个对话
 exports.deleteConversation = async (req, res) => {
     try {
         let { conversationIds } = req.body;
@@ -582,6 +585,7 @@ exports.deleteConversation = async (req, res) => {
     }
 };
 
+// 更新对话标题
 exports.updateConversationTitle = async (req, res) => {
     const error = validationResult(req);
     if (!error.isEmpty()) {
@@ -638,6 +642,7 @@ exports.updateConversationTitle = async (req, res) => {
     }
 };
 
+// 删除所有对话
 exports.deleteAllConversations = async (req, res) => {
     try {
         const result = await Conversation.destroy({
