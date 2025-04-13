@@ -1,5 +1,4 @@
 const { UserConfig } = require('../models');
-const { Op } = require('sequelize');
 const { LLM_CONFIG } = require('../middleware/config');
 const { validationResult } = require('express-validator');
 

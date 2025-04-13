@@ -15,7 +15,7 @@ exports.createNewConversation = async (req, res) => {
             errors: error.array()
         });
     }
-    const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话", webSearch = true} = req.body;
+    const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话", webSearch = true, biliSearch } = req.body;
     const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
     console.log(req.configs);
     if (!message) {
@@ -43,6 +43,21 @@ exports.createNewConversation = async (req, res) => {
             searchRes = await searchController.createNewSearch(message);
             res.write(`data: ${JSON.stringify({ webSearchSuccess: true })}\n\n`);
             console.log('搜索结果:', searchRes);
+        } catch (e) {
+            console.error('创建新搜索会话失败:', e.message || '未知错误');
+            return res.write(`data: ${JSON.stringify({
+                success: false,
+                message: '创建新搜索会话失败',
+                details: e.message || '未知错误'
+            })}\n\n`);
+        }
+    }
+    let biliSearchRes;
+    if (biliSearch) {
+        try {
+            biliSearchRes = await searchController.biliSearch(message);
+            res.write(`data: ${JSON.stringify({ biliSearchSuccess: true })}\n\n`);
+            console.log('Bili搜索结果:', biliSearchRes);
         } catch (e) {
             console.error('创建新搜索会话失败:', e.message || '未知错误');
             return res.write(`data: ${JSON.stringify({
