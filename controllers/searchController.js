@@ -1,7 +1,6 @@
 const { client } = require('../services/searchService');
 require('dotenv').config();
 const { getMCPClient } = require('../services/mcp-client');
-
 let mcp = null;
 getMCPClient()
     .then((client) => {
