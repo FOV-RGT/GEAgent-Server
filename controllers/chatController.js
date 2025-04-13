@@ -52,21 +52,21 @@ exports.createNewConversation = async (req, res) => {
             })}\n\n`);
         }
     }
-    let biliSearchRes;
-    if (biliSearch) {
-        try {
-            biliSearchRes = await searchController.biliSearch(message);
-            res.write(`data: ${JSON.stringify({ biliSearchSuccess: true })}\n\n`);
-            console.log('Bili搜索结果:', biliSearchRes);
-        } catch (e) {
-            console.error('创建新搜索会话失败:', e.message || '未知错误');
-            return res.write(`data: ${JSON.stringify({
-                success: false,
-                message: '创建新搜索会话失败',
-                details: e.message || '未知错误'
-            })}\n\n`);
-        }
-    }
+    // let biliSearchRes;
+    // if (biliSearch) {
+    //     try {
+    //         biliSearchRes = await searchController.biliSearch(message);
+    //         res.write(`data: ${JSON.stringify({ biliSearchSuccess: true })}\n\n`);
+    //         console.log('Bili搜索结果:', biliSearchRes);
+    //     } catch (e) {
+    //         console.error('创建新搜索会话失败:', e.message || '未知错误');
+    //         return res.write(`data: ${JSON.stringify({
+    //             success: false,
+    //             message: '创建新搜索会话失败',
+    //             details: e.message || '未知错误'
+    //         })}\n\n`);
+    //     }
+    // }
     // 创建新的对话
     let conversation;
     const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
