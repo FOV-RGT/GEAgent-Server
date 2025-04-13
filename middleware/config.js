@@ -15,7 +15,7 @@ const LLM_CONFIG = [
     },
     {
         model: 'Qwen/QwQ-32B',
-        max_tokens: 32768
+        max_tokens: 32520
     },
     {
         model: 'Qwen/Qwen2.5-72B-Instruct-128K',

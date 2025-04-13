@@ -77,6 +77,11 @@ console.log(crypto.randomBytes(32).toString('hex'));
 
 #### 此章节操作可通过NPM脚本完成，或直接使用终端操作
 
+> 若需要使用MCP服务，请运行以下指令进行python依赖的全局安装
+```bash
+pip install mcp[cli] bilibili-api-python curl_cffi
+```
+
 ### NPM脚本
 
 - **前缀**

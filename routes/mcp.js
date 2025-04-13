@@ -5,4 +5,8 @@ const searchController = require('../controllers/searchController');
 
 router.get('/tools', authenticateJWT, searchController.getMCPToolslist);
 
+router.get('/callTool', authenticateJWT, searchController.callTool);
+
+router.get('/ping', authenticateJWT, searchController.ping);
+
 module.exports = router;

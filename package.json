@@ -1,6 +1,6 @@
 {
   "name": "geseek-server",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "scripts": {
     "server_start:dev": "cross-env NODE_ENV=development nodemon ./bin/www",
@@ -43,9 +43,7 @@
     "nodemon": "^3.1.9",
     "sequelize": "^6.37.7",
     "uuid": "^11.1.0",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
+    "zod": "^3.24.2",
     "cross-env": "^7.0.3"
   }
 }
