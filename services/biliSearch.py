@@ -200,7 +200,6 @@ def extract_up_user_info(raw_result: dict) -> dict:
 @mcp.resource("config://app")
 def get_config() -> str:
     """Static configuration data"""
-    return "App configuration here"
 
 @mcp.prompt()
 def baseprompt(msg: str) -> list[base.Message]:
