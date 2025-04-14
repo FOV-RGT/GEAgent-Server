@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.prompts import base
 from bilibili_api import search, sync, select_client, request_settings
 import sys
 import re
@@ -12,13 +13,13 @@ mcp = FastMCP('BiliSearch')
 @mcp.tool()
 def bili_search(keyword: str) -> dict:
     """
-    在B站搜索关键词
-    
+    在B站（一个大型视频信息聚合网站）以关键词检索信息
+
     Args:
-        keyword: 要搜索的关键词
+        keyword: 要进行搜索的关键词，可以是视频标题、UP主名称等
     
     Returns:
-        包含搜索结果的对象
+        一个包含搜索结果的文本内容
     """
     sys.stderr.write(f"正在搜索: {keyword}\n")
     try:
@@ -193,6 +194,12 @@ def extract_up_user_info(raw_result: dict) -> dict:
 def get_config() -> str:
     """Static configuration data"""
     return "App configuration here"
+
+@mcp.prompt()
+def baseprompt(msg: str) -> list[base.Message]:
+    return [
+        base.UserMessage(msg)
+    ]
 
 if __name__ == '__main__':
     mcp.run(transport='stdio')

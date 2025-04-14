@@ -2,25 +2,45 @@ const axios = require('axios');
 require('dotenv').config();
 
 // 创建流式输出axios客户端实例
-const client = axios.create({
+const streamClient = axios.create({
     baseURL: 'https://api.siliconflow.cn/v1',
     headers: {
         'Authorization': `Bearer ${process.env.CHAT_API_KEY}`,
         'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
     },
     responseType: 'stream'
 });
 
+const normalClient = axios.create({
+    baseURL: 'https://api.siliconflow.cn/v1',
+    headers: {
+        'Authorization': `Bearer ${process.env.CHAT_API_KEY}`,
+        'Content-Type': 'application/json',
+    }
+});
+
 // 请求拦截器
-client.interceptors.request.use((config) => {
+streamClient.interceptors.request.use((config) => {
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
+
+normalClient.interceptors.request.use((config) => {
     return config;
 }, (error) => {
     return Promise.reject(error);
 });
 
 // 响应拦截器
-client.interceptors.response.use((response) => {
+streamClient.interceptors.response.use((response) => {
+    return response;
+}, (error) => {
+    console.error(`响应错误：`, error.response?.data || error.message || '未知');
+    return Promise.reject(error);
+});
+
+normalClient.interceptors.response.use((response) => {
     return response;
 }, (error) => {
     console.error(`响应错误：`, error.response?.data || error.message || '未知');
@@ -28,5 +48,6 @@ client.interceptors.response.use((response) => {
 });
 
 module.exports = {
-    client
+    streamClient,
+    normalClient
 }
