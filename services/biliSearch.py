@@ -1,10 +1,17 @@
+import sys
+import re
+import platform
+
+sys.stderr.write(f'Python版本: {sys.version}\n')
+sys.stderr.write(f'Python实现: {platform.python_implementation()}\n')
+sys.stderr.write(f'Python编译器: {platform.python_compiler()}\n')
+sys.stderr.write(f'操作系统: {platform.system()} {platform.release()}\n')
+
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.prompts import base
 from bilibili_api import search, sync, select_client, request_settings
-import sys
-import re
 
-sys.stderr.write('正在启动biliSearch MCP Server\n')
+
 
 select_client('curl_cffi')
 request_settings.set("impersonate", "chrome131")

@@ -3,9 +3,9 @@
   "version": "0.4.0",
   "private": true,
   "scripts": {
-    "server_start:dev": "cross-env NODE_ENV=development nodemon ./bin/www",
-    "server_start:test": "cross-env NODE_ENV=test nodemon ./bin/www",
-    "server_start:prod": "cross-env NODE_ENV=production nodemon ./bin/www",
+    "start:dev": "cross-env NODE_ENV=development nodemon ./bin/www",
+    "start:test": "cross-env NODE_ENV=test nodemon ./bin/www",
+    "start:prod": "cross-env NODE_ENV=production nodemon ./bin/www",
     "db:setup:dev": "npm run db:create:dev && npm run db:migrate:dev && npm run db:seed:dev",
     "db:setup:test": "npm run db:create:test && npm run db:migrate:test && npm run db:seed:test",
     "db:setup:prod": "npm run db:create:prod && npm run db:migrate:prod && npm run db:seed:prod",
@@ -32,6 +32,7 @@
     "bcryptjs": "^3.0.2",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
+    "cross-env": "^7.0.3",
     "debug": "~2.6.9",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
@@ -42,8 +43,6 @@
     "mysql2": "^3.14.0",
     "nodemon": "^3.1.9",
     "sequelize": "^6.37.7",
-    "uuid": "^11.1.0",
-    "zod": "^3.24.2",
-    "cross-env": "^7.0.3"
+    "uuid": "^11.1.0"
   }
 }
