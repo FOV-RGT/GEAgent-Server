@@ -1,6 +1,7 @@
 'use strict';
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
+const { v4: uuidv4 } = require('uuid');
 
 function generatePassword(length = 12) {
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -29,7 +30,7 @@ module.exports = {
 			const salt = await bcrypt.genSalt(10);
 			const hashedPassword = await bcrypt.hash('123123', salt);
 			const Anonchan = {
-				userId: 1,
+				userId: uuidv4(),
 				username: 'Anonchan',
 				email: 'Anonchan@qq.com',
 				password: hashedPassword,
@@ -41,7 +42,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Soyorin = {
-				userId: 2,
+				userId: uuidv4(),
 				username: 'Soyorin',
 				email: 'Soyorin@qq.com',
 				password: hashedPassword,
@@ -53,7 +54,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Tomorin = {
-				userId: 3,
+				userId: uuidv4(),
 				username: 'Tomorin',
 				email: 'Tomorin@qq.com',
 				password: hashedPassword,
@@ -65,7 +66,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Riki = {
-				userId: 4,
+				userId: uuidv4(),
 				username: 'Riki',
 				email: 'Riki@qq.com',
 				password: hashedPassword,
@@ -77,7 +78,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Ranachan = {
-				userId: 5,
+				userId: uuidv4(),
 				username: 'Ranachan',
 				email: 'Ranachan@qq.com',
 				password: hashedPassword,
@@ -91,7 +92,7 @@ module.exports = {
 			users.push(Anonchan, Soyorin, Tomorin, Riki, Ranachan);
 			for (let i = 1; i <= 10; i++) {
 				const user = {
-					userId: 100 + i,
+					userId: uuidv4(),
 					username: `user${i}`,
 					email: 'user' + i + '@qq.com',
 					password: hashedPassword,
@@ -110,7 +111,7 @@ module.exports = {
 		if (env === 'production') {
 			const users = [];
 			const Anonchan = {
-				userId: 1,
+				userId: uuidv4(),
 				username: 'Anonchan',
 				email: 'Anonchan@qq.com',
 				password: null,
@@ -122,7 +123,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Soyorin = {
-				userId: 2,
+				userId: uuidv4(),
 				username: 'Soyorin',
 				email: 'Soyorin@qq.com',
 				password: null,
@@ -134,7 +135,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Tomorin = {
-				userId: 3,
+				userId: uuidv4(),
 				username: 'Tomorin',
 				email: 'Tomorin@qq.com',
 				password: null,
@@ -146,7 +147,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Riki = {
-				userId: 4,
+				userId: uuidv4(),
 				username: 'Riki',
 				email: 'Riki@qq.com',
 				password: null,
@@ -158,7 +159,7 @@ module.exports = {
 				updatedAt: new Date()
 			};
 			const Ranachan = {
-				userId: 5,
+				userId: uuidv4(),
 				username: 'Ranachan',
 				email: 'Ranachan@qq.com',
 				password: null,
@@ -172,7 +173,7 @@ module.exports = {
 			users.push(Anonchan, Soyorin, Tomorin, Riki, Ranachan);
 			for (let i = 1; i <= 10; i++) {
 				const user = {
-					userId: 100 + i,
+					userId: uuidv4(),
 					username: `user${i}`,
 					email: 'user' + i + '@qq.com',
 					password: null,

@@ -114,7 +114,7 @@ exports.register = async (req, res) => {
             username,
             email: emailToSave,
             password, // 密码会在模型中自动哈希加密
-            userId: await User.getNewUserId(), // 获取最大用户ID并加1
+            userId: User.getNewUserId(), // 获取最大用户ID并加1
             fullName: fullName || null,
             role: 'user', // 默认角色为用户
             isActive: true // 默认激活状态
@@ -278,7 +278,7 @@ exports.createUser = async (req, res) => {
                 errors: errors.array()
             });
         }
-        const { username, email, password, fullName, role, userId } = req.body;
+        const { username, email, password, fullName, role } = req.body;
         const existingUsername = await User.findOne({
             where: { username }
         });
@@ -303,25 +303,13 @@ exports.createUser = async (req, res) => {
                 });
             }
         }
-        // 检查用户ID是否已存在
-        if (userId) {
-            const existingUserId = await User.findOne({
-                where: { userId }
-            });
-            if (existingUserId) {
-                return res.status(400).json({
-                    success: false,
-                    message: '用户ID已被使用'
-                });
-            }
-        }
         // 创建新用户
         const newUser = await User.create({
             username,
             email: emailToSave,
             password,
             fullName: fullName || null,
-            userId: userId || await User.getNewUserId(),
+            userId: User.getNewUserId(),
             role: role || 'admin', // 默认角色为管理员
             isActive: true // 默认激活状态
         });

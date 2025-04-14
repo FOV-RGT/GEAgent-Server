@@ -4,6 +4,23 @@
 
 ---
 
+## 前置运行条件
+
+请确保你安装了以下运行环境：
+- `python 3.13.3`
+- `node 22.14.0`
+
+包管理器：
+- `npm`
+- `pip`
+
+数据库CLI
+- `sequelize-cli`
+
+> 可通过 npm i -g sequelize-cli 全局安装 sequelize-cli
+
+该项目包含 python 文件，如需要 python 虚拟环境的支持，请自行进行虚拟环境的配置。
+
 ## 项目结构
 
 ```graphql
@@ -75,14 +92,15 @@ console.log(crypto.randomBytes(32).toString('hex'));
 
 ## 安装与运行
 
-#### 此章节操作可通过NPM脚本完成，或直接使用终端操作
+### Python环境
 
-> 若需要使用MCP服务，请运行以下指令进行python依赖的全局安装
 ```bash
-pip install mcp[cli] bilibili-api-python curl_cffi
+pip install -r requirements.txt
 ```
 
-### NPM脚本
+### Node.js环境
+
+#### NPM脚本
 
 - **前缀**
   - **`start` - 启动服务器**
@@ -97,7 +115,7 @@ pip install mcp[cli] bilibili-api-python curl_cffi
   - **`^~:test` - 测试环境**
   - **`^~:prod` - 生产环境**
 
-### 终端操作
+#### 终端操作
 
 ```bash
 # 安装项目依赖包
@@ -158,5 +176,5 @@ npm run start:prod
 ### 认证错误
 
 - 确保`JWT_SECRET`在前后端保持一致
-- 检查令牌是否过期（默认12小时）
+- 检查令牌是否过期（默认3天）
 - 验证请求头格式是否为 `Authorization: Bearer <token>`

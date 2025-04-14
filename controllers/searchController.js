@@ -17,7 +17,6 @@ exports.createNewSearch = async (query) => {
         const data = JSON.stringify({ app_id: process.env.SEARCH_APP_ID });
         const response = await client.post('/v2/app/conversation', data);
         console.log('创建新搜索会话成功:', response.data);
-
         return await exports.search(query, response.data.conversation_id);
     } catch (e) {
         throw new Error('创建新搜索会话失败: ', e.message || '未知错误');
@@ -33,7 +32,6 @@ exports.search = async (query, conversation_id) => {
             stream: false
         });
         console.log('搜索请求数据:', data);
-
         const response = await client.post('/v2/app/conversation/runs', data);
         return {
             message: response.data.answer,
@@ -46,12 +44,16 @@ exports.search = async (query, conversation_id) => {
 
 exports.getToolslist = async () => {
     const result = await mcp.listTools();
-    const tools = result.tools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        input_schema: tool.inputSchema
+    const formattedTools = result.tools.map(tool => ({
+        type: 'function',
+        function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.inputSchema
+        }
     }));
-    return tools;
+    console.log('获取工具列表成功:', formattedTools);
+    return formattedTools;
 }
 
 exports.getMCPToolslist = async (req, res) => {
@@ -70,22 +72,40 @@ exports.getMCPToolslist = async (req, res) => {
     }
 }
 
-exports.callTool = async (req, res) => {
+exports.callTool = async (name, arguments) => {
     try {
-        console.log('调用工具请求数据:', req.body);
+        console.log('调用工具请求数据:', name, arguments);
         const result = await mcp.callTool({
-            name: req.body.tool,
-            arguments: {
-                keyword: req.body.args
-            }
+            name,
+            arguments
         });
-        const { normalResult, extraData } = formattedResult(result, req.body.tool);
-        if (Object.keys(extraData).length > 0) {
-            res.json({
-                success: true,
-                result: extraData
+        return formattedResult(result, name);
+    } catch (e) {
+        throw new Error('调用工具失败: ', e.message || '未知错误');
+    }
+}
+
+exports.MCPCallTool = async (req, res) => {
+    try {
+        const { name, arguments, type } = req.body;
+        console.log('调用工具请求数据:', name, arguments, type);
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: '缺少工具名称'
             });
         }
+        if (Object.keys(arguments).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: '缺少工具参数'
+            });
+        }
+        const { normalResult, extraData } = await exports.callTool(name, arguments);
+        res.json({
+            success: true,
+            result: type === 'normal' ? normalResult : extraData,
+        });
     } catch (e) {
         console.error('调用工具失败:', e);
         res.status(500).json({
@@ -144,6 +164,37 @@ exports.ping = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Ping失败',
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.getPrompt = async () => {
+    try {
+        const result = await mcp.getPrompt({
+            name: 'baseprompt',
+            arguments: {
+                msg: 'list'
+            }
+        });
+        console.log('获取提示词列表成功:', result);
+        return result
+    } catch (e) {
+        throw new Error('获取提示词列表失败: ', e.message || '未知错误');
+    }
+}
+
+exports.routerGetPrompt = async (req, res) => {
+    try {
+        res.json({
+            success: true,
+            prompts: await exports.getPrompt()
+        })
+    } catch (e) {
+        console.error('获取提示词列表失败:', e);
+        res.status(500).json({
+            success: false,
+            message: '获取提示词列表失败',
             details: e.message || '未知错误'
         });
     }

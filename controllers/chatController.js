@@ -1,9 +1,10 @@
-const { client } = require('../services/chatService_stream');
+const { streamClient, normalClient } = require('../services/chatService_stream');
 const searchController = require('../controllers/searchController');
 const { Conversation, Message } = require('../models');
 const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const { LLM_CONFIG } = require('../middleware/config');
+const promptManager = require('../services/promptManager')
 
 // 创建新的对话
 exports.createNewConversation = async (req, res) => {
@@ -15,9 +16,7 @@ exports.createNewConversation = async (req, res) => {
             errors: error.array()
         });
     }
-    const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话", webSearch = true, biliSearch } = req.body;
-    const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
-    console.log(req.configs);
+    const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话" } = req.body;
     if (!message) {
         return res.status(400).json({
             success: false,
@@ -32,51 +31,20 @@ exports.createNewConversation = async (req, res) => {
             details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
         });
     }
+    // 创建新的对话
+    let conversation;
+    const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
     res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
-    let searchRes;
-    if (webSearch) {
-        try {
-            searchRes = await searchController.createNewSearch(message);
-            res.write(`data: ${JSON.stringify({ webSearchSuccess: true })}\n\n`);
-            console.log('搜索结果:', searchRes);
-        } catch (e) {
-            console.error('创建新搜索会话失败:', e.message || '未知错误');
-            return res.write(`data: ${JSON.stringify({
-                success: false,
-                message: '创建新搜索会话失败',
-                details: e.message || '未知错误'
-            })}\n\n`);
-        }
-    }
-    let biliSearchRes;
-    if (biliSearch) {
-        try {
-            biliSearchRes = await searchController.biliSearch(message);
-            res.write(`data: ${JSON.stringify({ biliSearchSuccess: true })}\n\n`);
-            console.log('Bili搜索结果:', biliSearchRes);
-        } catch (e) {
-            console.error('创建新搜索会话失败:', e.message || '未知错误');
-            return res.write(`data: ${JSON.stringify({
-                success: false,
-                message: '创建新搜索会话失败',
-                details: e.message || '未知错误'
-            })}\n\n`);
-        }
-    }
-    // 创建新的对话
-    let conversation;
-    const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
     res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
     try {
         conversation = await Conversation.create({
             userId: req.user.userId,
             conversationId: nextConversationId,
-            searchId: searchRes ? searchRes.searchId : null,
-            title,
+            title
         });
         // 保存对话数据
         await Message.create({
@@ -84,6 +52,7 @@ exports.createNewConversation = async (req, res) => {
             role: 'user',
             content: message.trim()
         });
+        await conversationManager(req, res, conversation, message);
     } catch (e) {
         console.error('创建对话失败:', e);
         return res.write(`data: ${JSON.stringify({
@@ -92,244 +61,82 @@ exports.createNewConversation = async (req, res) => {
             details: e.message || '未知错误'
         })}\n\n`);
     }
+};
+
+const MCPManager = async (req, res, conversation, message) => {
     try {
-        const model = LLM_CONFIG[LLMID].model;
-        const parsedMessage = message.trim();
-        console.log(`请求模型: ${model}`);
-        console.log(`请求消息: ${parsedMessage}`);
-        const messages = [];
-        messages.push({
-            role: 'user',
-            content: parsedMessage
+        const { LLMID } = req.body;
+        const messages = await Message.findAll({
+            where: { conversationId: conversation.id },
+            order: [['createdAt', 'ASC']]
         });
-        if (searchRes) {
-            messages.push({
+        const historyMessages = messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+        }));
+        historyMessages.push({
+            role: 'user',
+            content: message
+        });
+        historyMessages.push({
+            role: 'system',
+            content: promptManager.basePrompt
+        });
+        if (LLMID < 3) {
+            historyMessages.push({
                 role: 'system',
-                content: searchRes ? searchRes.message : null
-            });
+                content: promptManager.toolsPrompt()
+            })
         }
-        // 准备请求数据
+        const model = LLM_CONFIG[LLMID].model;
+        const tools = await searchController.getToolslist();
+        console.log('工具列表:', tools);
         const data = {
             model,
-            messages,
-            stream: true,
-            max_tokens,
+            messages: historyMessages,
+            stream: false,
+            max_tokens: 2048,
             stop: null,
-            temperature,
-            top_p,
-            top_k,
-            frequent_penalty,
+            temperature: 0.4,
+            top_p: 0.7,
+            top_k: 40,
+            frequent_penalty: 0.5,
             n: 1,
             response_format: {
                 type: 'text'
-            },  
-            // tools: [
-                
-            // ]
-        }
-        let resContent = '';
-        let resReasoningContent = '';
-        // 发送请求
-        const response = await client.post('/chat/completions', data);
-        // 添加一个缓冲区变量
-        let dataBuffer = '';
-        // 处理流式响应
-        // response.data.on('data', (chunk) => {
-        //     const chunkText = chunk.toString();
-        //     try {
-        //         if (chunkText.includes('[DONE]')) {
-        //             res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-        //             return;
-        //         }
-        //         console.log('chunkText:', chunkText);
-        //         const dataChunks = chunkText.split('\n\n').filter(chunk => chunk.trim() !== '');
-        //         for (const dataChunk of dataChunks) {
-        //             // 处理每个独立的数据块
-        //             if (dataChunk.trim().startsWith('data: ')) {
-        //                 try {
-        //                     // 提取JSON部分
-        //                     const jsonText = dataChunk.trim().substring(6);
-        //                     const parsedData = JSON.parse(jsonText);
-        //                     if (parsedData.choices && parsedData.choices.length > 0) {
-        //                         const delta = parsedData.choices[0].delta;
-        //                         const content = delta.content || null;
-        //                         const reasoning_content = delta.reasoning_content || null;
-        //                         if (content) {
-        //                             resContent += content;
-        //                         }
-        //                         if (reasoning_content) {
-        //                             resReasoningContent += reasoning_content;
-        //                         }
-        //                         // 只转发有内容的部分
-        //                         if (content || reasoning_content) {
-        //                             res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
-        //                         }
-        //                     }
-        //                 } catch (parseError) {
-        //                     // 单个数据块解析错误，记录并继续处理其他块
-        //                     console.error('解析JSON块失败:', parseError.message);
-        //                     console.error('问题数据块:', dataChunk);
-        //                     // 作为原始数据发送
-        //                     res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
-        //                 }
-        //             } else {
-        //                 // 非标准格式数据发送为原始数据
-        //                 res.write(`data: ${JSON.stringify({ raw: dataChunk })}\n\n`);
-        //             }
-        //         }
-        //     } catch (e) {
-        //         // 整体处理异常
-        //         console.error('处理响应数据错误:', e);
-        //         console.error('原始数据:', chunkText);
-        //         res.write(`data: ${JSON.stringify({ error: '数据处理错误: ' + e.message })}\n\n`);
-        //     }
-        // });
-        response.data.on('data', (chunk) => {
-            const chunkText = chunk.toString();
-            try {
-                // 检查是否完成
-                if (chunkText.includes('[DONE]')) {
-                    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-                    return;
-                }
-                // 将新数据添加到缓冲区
-                dataBuffer += chunkText;
-                // 尝试提取并处理完整的数据块
-                while (true) {
-                    // 寻找完整的数据块 (data: {...}\n\n 格式)
-                    const endOfBlockIndex = dataBuffer.indexOf('\n\n');
-                    if (endOfBlockIndex === -1) break; // 没有找到完整块，退出循环
-                    const dataBlock = dataBuffer.substring(0, endOfBlockIndex);
-                    dataBuffer = dataBuffer.substring(endOfBlockIndex + 2); // 移除已处理的数据块
-                    // 现在处理提取出的完整数据块
-                    if (dataBlock.trim().startsWith('data: ')) {
-                        try {
-                            // 提取JSON部分
-                            const jsonStart = dataBlock.indexOf('{');
-                            if (jsonStart === -1) continue; // 没有找到JSON开始，跳过这个块
-                            const jsonText = dataBlock.substring(jsonStart);
-                            const parsedData = JSON.parse(jsonText);
-                            if (parsedData.choices && parsedData.choices.length > 0) {
-                                const delta = parsedData.choices[0].delta;
-                                const content = delta.content || null;
-                                const reasoning_content = delta.reasoning_content || null;
-                                if (content) {
-                                    resContent += content;
-                                }
-                                if (reasoning_content) {
-                                    resReasoningContent += reasoning_content;
-                                }
-                                // 只转发有内容的部分
-                                if (content || reasoning_content) {
-                                    res.write(`data: ${JSON.stringify({ content, reasoning_content })}\n\n`);
-                                }
-                            }
-                        } catch (parseError) {
-                            console.error('解析JSON块失败:', parseError.message);
-                            console.error('问题数据块:', dataBlock);
-                            res.write(`data: ${JSON.stringify({ raw: dataBlock })}\n\n`);
-                        }
-                    }
-                }
-                // 检查缓冲区是否过大 (防止内存泄漏)
-                if (dataBuffer.length > 1000000) { // 1MB限制
-                    console.warn('缓冲区过大，清空');
-                    dataBuffer = dataBuffer.substring(dataBuffer.length - 100000); // 保留最后100KB
-                }
-            } catch (e) {
-                console.error('处理响应数据错误:', e);
-                console.error('原始数据:', chunkText);
-                res.write(`data: ${JSON.stringify({ error: '数据处理错误: ' + e.message })}\n\n`);
-            }
-        });
-        // 处理流错误
-        response.data.on('error', err => {
-            console.error('流错误:', err);
-            res.write(`${JSON.stringify({ error: '流处理出错: ' + err.message })}\n\n`);
-            res.end();
-        });
-        response.data.on('end', async () => {
-            try {
-                if (resContent) {
-                    await Message.create({
-                        conversationId: conversation.id,
-                        role: 'assistant',
-                        content: resContent,
-                        reasoning_content: resReasoningContent
-                    });
-                }
-            } catch (e) {
-                console.error('保存AI回复失败:', e);
-            } finally {
-                res.end();
-            }
-        });
-    } catch (error) {
-        // 这里只有在设置响应头之前发生的错误才会执行
-        console.error('LLM请求错误:', error.response?.data || error.message);
-        if (!res.headersSent) {
-            // 只有在响应头未发送时才设置状态和发送JSON
-            res.status(500).json({
-                success: false,
-                message: '处理请求时出错',
-                details: error.message || '未知'
-            });
-        } else {
-            // 如果响应头已发送，通过流式方式发送错误
-            try {
-                res.write(`data: ${JSON.stringify({ error: '处理出错: ' + (error.message || '未知') })}\n\n`);
-                res.end();
-            } catch (e) {
-                console.error('无法发送错误响应:', e);
+            },
+            tools,
+            tool_choice: "auto"
+        };
+        const response = await normalClient.post('/chat/completions', data);
+        console.log('MCPManager响应:', response.data);
+        const resMessage = response.data.choices[0].message;
+        console.log('MCPManager消息:', resMessage);
+        const toolCall = resMessage.tool_calls;
+        console.log('工具调用:', toolCall);
+        for (const tool of toolCall) {
+            if (tool.function) {
+                console.log('调用工具:', tool.function);
             }
         }
+        
+    } catch (e) {
+        console.error('MCPManager错误:', e.message || '未知错误');
+        return res.write(`data: ${JSON.stringify({
+            success: false,
+            message: 'MCPManager错误',
+            details: e.message || '未知错误'
+        })}\n\n`);
     }
-};
+}
 
-// 继续上次对话
-exports.continuePreviousConversation = async (req, res) => {
-    const { message = "mygo和mujica哪个好看？", LLMID = 2, webSearch = true} = req.body;
-    const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
-    const userConversationId = parseInt(req.params.conversationId);
-    if (isNaN(userConversationId) || userConversationId < 1) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的会话ID',
-            details: '会话ID必须是正整数'
-        });
-    }
-    if (!message) {
-        return res.status(400).json({
-            success: false,
-            message: '缺少必要参数',
-            details: 'message是必需的'
-        });
-    }
-    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的LLMID',
-            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
-        });
-    }
+const conversationManager = async (req, res, conversation, message) => {
     try {
-        const conversation = await Conversation.findOne({
-            where: {
-                userId: req.user.userId,
-                conversationId: userConversationId
-            }
-        });
-        if (!conversation) {
-            return res.status(404).json({
-                success: false,
-                message: '对话不存在或无权访问',
-            });
+        const { LLMID, webSearch, MCP } = req.body;
+        const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
+        if (MCP) {
+            await MCPManager(req, res, conversation, message);
         }
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
-        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
         let searchRes;
         if (webSearch) {
             if (!conversation.searchId) {
@@ -385,7 +192,6 @@ exports.continuePreviousConversation = async (req, res) => {
             });
         }
         const model = LLM_CONFIG[LLMID].model;
-        
         const data = {
             model,
             messages: historyMessages,
@@ -403,7 +209,7 @@ exports.continuePreviousConversation = async (req, res) => {
         };
         let resContent = '';
         let resReasoningContent = '';
-        const response = await client.post('/chat/completions', data);
+        const response = await streamClient.post('/chat/completions', data);
         // 添加一个缓冲区变量
         let dataBuffer = '';
         // 处理流式响应
@@ -487,6 +293,72 @@ exports.continuePreviousConversation = async (req, res) => {
                 res.end();
             }
         });
+    } catch (error) {
+        // 这里只有在设置响应头之前发生的错误才会执行
+        console.error('LLM请求错误:', error.response?.data || error.message);
+        if (!res.headersSent) {
+            // 只有在响应头未发送时才设置状态和发送JSON
+            res.status(500).json({
+                success: false,
+                message: '处理请求时出错',
+                details: error.message || '未知'
+            });
+        } else {
+            // 如果响应头已发送，通过流式方式发送错误
+            try {
+                res.write(`data: ${JSON.stringify({ error: '处理出错: ' + (error.message || '未知') })}\n\n`);
+                res.end();
+            } catch (e) {
+                console.error('无法发送错误响应:', e);
+            }
+        }
+    }
+}
+
+// 继续上次对话
+exports.continuePreviousConversation = async (req, res) => {
+    const { message = "mygo和mujica哪个好看？", LLMID = 2 } = req.body;
+    const userConversationId = parseInt(req.params.conversationId);
+    if (isNaN(userConversationId) || userConversationId < 1) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的会话ID',
+            details: '会话ID必须是正整数'
+        });
+    }
+    if (!message) {
+        return res.status(400).json({
+            success: false,
+            message: '缺少必要参数',
+            details: 'message是必需的'
+        });
+    }
+    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的LLMID',
+            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
+        });
+    }
+    try {
+        const conversation = await Conversation.findOne({
+            where: {
+                userId: req.user.userId,
+                conversationId: userConversationId
+            }
+        });
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: '对话不存在或无权访问',
+            });
+        }
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
+        await conversationManager(req, res, conversation, message);
     } catch (error) {
         // 这里只有在设置响应头之前发生的错误才会执行
         console.error('LLM请求错误:', error.response?.data || error.message);

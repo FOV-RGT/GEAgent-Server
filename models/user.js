@@ -1,6 +1,7 @@
 'use strict';
 const { Model } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 
 module.exports = (sequelize, DataTypes) => {
     class User extends Model {
@@ -19,22 +20,14 @@ module.exports = (sequelize, DataTypes) => {
         async validatePassword(password) {
             return bcrypt.compare(password, this.password);
         }
-        static async getNewUserId() {
-            try {
-                const maxUser = await this.findOne({
-                    order: [['userId', 'DESC']]
-                });
-                console.log('最大用户ID:', maxUser ? maxUser.userId : 100);
-                return maxUser ? maxUser.userId + 1 : 101; // 从101开始
-            } catch (e) {
-                console.error('获取最大用户ID失败:', e);
-                return 101;
-            }
+        static getNewUserId() {
+            return uuidv4();
         }
     }
     User.init({
         userId: {
-            type: DataTypes.INTEGER,
+            type: DataTypes.UUID,
+            defaultValue: DataTypes.UUIDV4,
             allowNull: false,
             unique: true,
         },
@@ -103,6 +96,9 @@ module.exports = (sequelize, DataTypes) => {
                 if (user.password) {
                     const salt = await bcrypt.genSalt(10);
                     user.password = await bcrypt.hash(user.password, salt);
+                }
+                if (!user.userId) {
+                    user.userId = uuidv4();
                 }
             },
             beforeUpdate: async (user) => {
