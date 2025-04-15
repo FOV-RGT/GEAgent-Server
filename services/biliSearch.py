@@ -21,17 +21,31 @@ mcp = FastMCP('BiliSearch')
 def bili_search(keyword: str) -> dict:
     """
     在B站（一个大型视频信息聚合网站）以关键词检索信息
-
+    
     Args:
         keyword: 要进行搜索的关键词，可以是视频标题、UP主名称等
     
     Returns:
         一个包含搜索结果的文本内容
+        attr:
+            up_user:首页推荐UP主，与keyword关联度高
+                name:UP主名称
+                fans_count:粉丝数
+                videos_count:视频数
+                is_power_up:是否是“百大”UP主。“百大”是极高的荣誉
+            representative_works:该首页up主的推荐作品
+                view:播放数
+                danmaku:弹幕数
+                coin:硬币数
+                favorite:收藏数
+                comment:评论数
+                like:点赞数
+                description:视频简介
+                tags:视频标签
     """
     sys.stderr.write(f"正在搜索: {keyword}\n")
     try:
         raw_result = sync(search.search(keyword))
-        sys.stderr.write(f"搜索结果: {raw_result}\n\n\n\n")
         # 使用格式化函数处理结果
         return extract_up_user_info(raw_result)
     except Exception as e:
@@ -144,6 +158,7 @@ def extract_up_user_info(raw_result: dict) -> dict:
                 break
         
         # 处理视频信息 - 新增部分
+        video_count = 0
         for item in raw_result["result"]:
             if item.get("result_type") == "video" and item.get("data"):
                 for video_data in item["data"]:
@@ -188,6 +203,9 @@ def extract_up_user_info(raw_result: dict) -> dict:
                     }
                     extra_data["videos"].append(extra_video)
                     data["videos"].append(video)
+                    video_count += 1
+                    if video_count >= 10:
+                        break
                 
                 # 视频信息提取完成后记录日志
                 if extra_data["videos"]:

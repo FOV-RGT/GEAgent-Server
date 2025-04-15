@@ -6,20 +6,22 @@
 
 ## 前置运行条件
 
-请确保你安装了以下运行环境：
-- `python 3.13.3`
-- `node 22.14.0`
+运行环境：
+- `Python v3.13.3`
+- `Node v22.14.0`
 
 包管理器：
-- `npm`
-- `pip`
+- `npm v10.9.2`
+- `pip v25.0.1`
 
-数据库CLI
-- `sequelize-cli`
+数据库CLI：
+- `sequelize-cli v6.6.2`
+
+**版本号不可相差过大**
 
 > 可通过 npm i -g sequelize-cli 全局安装 sequelize-cli
 
-该项目包含 python 文件，如需要 python 虚拟环境的支持，请自行进行虚拟环境的配置。
+该项目包含 Python 文件，如需 Python 虚拟环境的支持，请自行进行虚拟环境的配置
 
 ## 项目结构
 
@@ -44,7 +46,7 @@
 
 ## 配置环境变量
 - 将根目录下的`env.example`文件重命名为`.env`
-- 设置`.env`文件中的`JWT_SECRET`与`API_KEY`为相应值
+- 根据下表设置`.env`中的变量
 <!-- **attr:**
   - **PORT**：该服务运行的端口
   - **JWT_SECRET**：用于签名和验证用户认证令牌的密钥，确保其足够复杂且保密，影响系统安全
@@ -133,7 +135,7 @@ npx sequelize-cli db:create --env <NODE_ENV> --charset utf8mb4 --collate utf8mb4
 # 表迁移
 npx sequelize-cli db:migrate --env <NODE_ENV>
 
-# 种子，填充初始数据
+# 填充初始数据
 npx sequelize-cli db:seed:all --env <NODE_ENV>
 
 # 启动服务，需选择启动环境
@@ -148,7 +150,7 @@ npm run start:test
 npm run start:prod
 ```
 
-> 服务器访问地址默认为[http://localhost:3000](http://localhost:3000)，具体由`.env`文件中的`PORT`变量决定。
+> 服务器访问地址默认为[http://localhost:3000](http://localhost:3000)，具体由`.env`文件中的`PORT`变量决定
 
 ---
 
@@ -163,7 +165,7 @@ npm run start:prod
 - **`/api/chat/list` - 获取会话列表**
 - **`/api/chat/continue/:conversationId` - 获取特定对话数据**
 
-> 完整API文档请参阅[apifox](https://app.apifox.com/project/6155869)接口对应预览文档。
+> 完整API文档请参阅[apifox](https://app.apifox.com/project/6155869)接口对应预览文档
 
 ---
 
@@ -171,10 +173,9 @@ npm run start:prod
 
 ### 跨域问题
 
-如遇到跨域问题，请检查前端请求源是否被后端允许。项目使用了 CORS 中间件处理跨域请求。若服务器反向代理后端服务，建议于代理层配置跨域设置，并移除后端服务所使用的 CORS 中间件，以避免重复添加响应头所造成的潜在配置冲突问题。
+如遇到跨域问题，请检查前端请求源是否被后端允许。项目使用了 CORS 中间件处理跨域请求。若服务器反向代理后端服务，建议于代理层配置跨域设置，并移除后端服务所使用的 CORS 中间件，以避免重复添加响应头所造成的潜在配置冲突问题
 
 ### 认证错误
 
-- 确保`JWT_SECRET`在前后端保持一致
 - 检查令牌是否过期（默认3天）
 - 验证请求头格式是否为 `Authorization: Bearer <token>`

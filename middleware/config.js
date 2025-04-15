@@ -20,6 +20,10 @@ const LLM_CONFIG = [
     {
         model: 'Qwen/Qwen2.5-72B-Instruct-128K',
         max_tokens: 4096
+    },
+    {
+        model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B',
+        max_tokens: 16384
     }
 ]
 
@@ -36,11 +40,11 @@ const findConfig = async (req, res, next) => {
             message: '无效的LLMID'
         })
     }
-    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID > 4) {
+    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID > LLM_CONFIG.length - 1) {
         return res.status(400).json({
             success: false,
             message: '无效的LLMID',
-            details: 'LLMID必须在0到4之间'
+            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
         })
     }
     try {
