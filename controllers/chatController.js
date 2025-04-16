@@ -290,18 +290,14 @@ const conversationManager = async (req, res, conversation, message) => {
                             const jsonText = dataBlock.substring(jsonStart);
                             const parsedData = JSON.parse(jsonText);
                             // 声明一个变量来跟踪流式工具调用
-                            
-                            // 在 response.data.on('data') 处理函数内修改处理工具调用的部分
                             if (parsedData.choices && parsedData.choices.length > 0) {
                                 const delta = parsedData.choices[0].delta;
                                 const content = delta.content || null;
                                 const reasoning_content = delta.reasoning_content || null;
+                                const tool_calls = delta.tool_calls || null;
                                 // 处理工具调用
-                                if (delta.tool_calls && delta.tool_calls.length > 0) {
-                                    
+                                if (tool_calls && tool_calls.length > 0) {
                                     for (const toolCall of delta.tool_calls) {
-                                        console.log('工具调用:', toolCall);
-                                        
                                         const index = toolCall.index;
                                         // 初始化工具调用对象（如果不存在）
                                         if (!streamingToolCalls[index]) {
@@ -318,15 +314,12 @@ const conversationManager = async (req, res, conversation, message) => {
                                         // 更新工具调用对象
                                         if (toolCall.id) streamingToolCalls[index].id = toolCall.id;
                                         if (toolCall.type) streamingToolCalls[index].type = toolCall.type;
-                                        if (toolCall.function) {
-                                            if (toolCall.function.name) {
-                                                streamingToolCalls[index].function.name = toolCall.function.name;
-                                            }
-                                            if (toolCall.function.arguments) {
-                                                streamingToolCalls[index].function.arguments += toolCall.function.arguments;
-                                            }
+                                        if (toolCall.function?.name) {
+                                            streamingToolCalls[index].function.name = toolCall.function.name;
                                         }
-                                        // console.log(`工具调用更新 [${index}]:`, streamingToolCalls[index]);
+                                        if (toolCall.function?.arguments) {
+                                            streamingToolCalls[index].function.arguments += toolCall.function.arguments;
+                                        }
                                     }
                                 }
                                 if (content) {
