@@ -4,12 +4,12 @@ const LLM_CONFIG = [
     {
         model: "deepseek-ai/DeepSeek-R1",
         max_tokens: 16384,
-        functionCall: true
+        functionCall: false
     },
     {
         model: 'deepseek-ai/DeepSeek-V3',
         max_tokens: 8192,
-        functionCall: true
+        functionCall: false
     },
     {
         model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
@@ -18,7 +18,7 @@ const LLM_CONFIG = [
     },
     {
         model: 'Qwen/QwQ-32B',
-        max_tokens: 32520,
+        max_tokens: 16384,
         functionCall: true
     },
     {

@@ -145,8 +145,6 @@ const formattedResult = (result, toolName) => {
             content: processedContent
         };
     }
-    // console.log('格式化结果:', normalResult, extraData);
-    
     return {
         normalResult,
         extraData

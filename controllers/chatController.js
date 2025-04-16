@@ -104,7 +104,6 @@ const MCPManager = async (res, conversation, toolCalls) => {
             toolCallPromise.push(callPromise);
         }
         res.write(`data: ${JSON.stringify({ MCPStatus })}\n\n`);
-        // const prompt = promptManager.functionCallPrompt(toolCalls, toolsArguments);
         const results = await Promise.allSettled(toolCallPromise);
         let callResults = null;
         let content = '';
@@ -116,7 +115,8 @@ const MCPManager = async (res, conversation, toolCalls) => {
             for (const res of results) {
                 if (res.status === 'rejected') continue
                 const text = res.value.normalResult.content[0].text || 'null'
-                content += `${text}\n --- \n`;
+                const toolName = MCPStatus.fnCall[results.indexOf(res)].name;
+                content += `工具【${toolName}】返回结果:\n${text}\n --- \n`;
             }
             callResults = {
                 role: 'system',
@@ -298,6 +298,8 @@ const conversationManager = async (req, res, conversation, historyMessages, roun
                                 const tool_calls = delta.tool_calls || null;
                                 // 处理工具调用
                                 if (tool_calls && tool_calls.length > 0) {
+                                    console.log(tool_calls);
+                                    
                                     for (const toolCall of delta.tool_calls) {
                                         const index = toolCall.index;
                                         // 初始化工具调用对象（如果不存在）
