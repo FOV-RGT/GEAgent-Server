@@ -248,10 +248,10 @@ const conversationManager = async (req, res, conversation, historyMessages, roun
             stream: true,
             max_tokens,
             stop: null,
-            temperature,
-            top_p,
-            top_k,
-            frequent_penalty,
+            temperature: 0.4,
+            top_p: 0.7,
+            top_k: 40,
+            frequent_penalty: 0.5,
             n: 1,
             response_format: {
                 type: 'text'
@@ -426,22 +426,18 @@ exports.continuePreviousConversation = async (req, res) => {
     if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
         return res.status(400).json({
             success: false,
-            message: '无效的LLMID',
-            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
-        });
+            message: 'MCPManager错误',
+            details: e.message || '未知错误'
+        })}\n\n`);
     }
+}
+
+const conversationManager = async (req, res, conversation, message) => {
     try {
-        const conversation = await Conversation.findOne({
-            where: {
-                userId: req.user.userId,
-                conversationId: userConversationId
-            }
-        });
-        if (!conversation) {
-            return res.status(404).json({
-                success: false,
-                message: '对话不存在或无权访问',
-            });
+        const { LLMID, webSearch, MCP } = req.body;
+        const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
+        if (MCP) {
+            await MCPManager(req, res, conversation, message);
         }
         const messages = await Message.findAll({
             where: { conversationId: conversation.id },
@@ -466,6 +462,72 @@ exports.continuePreviousConversation = async (req, res) => {
         res.flushHeaders();
         res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
         conversationManager(req, res, conversation, historyMessages);
+    } catch (error) {
+        // 这里只有在设置响应头之前发生的错误才会执行
+        console.error('LLM请求错误:', error.response?.data || error.message);
+        if (!res.headersSent) {
+            // 只有在响应头未发送时才设置状态和发送JSON
+            res.status(500).json({
+                success: false,
+                message: '处理请求时出错',
+                details: error.message || '未知'
+            });
+        } else {
+            // 如果响应头已发送，通过流式方式发送错误
+            try {
+                res.write(`data: ${JSON.stringify({ error: '处理出错: ' + (error.message || '未知') })}\n\n`);
+                res.end();
+            } catch (e) {
+                console.error('无法发送错误响应:', e);
+            }
+        }
+    }
+}
+
+// 继续上次对话
+exports.continuePreviousConversation = async (req, res) => {
+    const { message = "mygo和mujica哪个好看？", LLMID = 2 } = req.body;
+    const userConversationId = parseInt(req.params.conversationId);
+    if (isNaN(userConversationId) || userConversationId < 1) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的会话ID',
+            details: '会话ID必须是正整数'
+        });
+    }
+    if (!message) {
+        return res.status(400).json({
+            success: false,
+            message: '缺少必要参数',
+            details: 'message是必需的'
+        });
+    }
+    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
+        return res.status(400).json({
+            success: false,
+            message: '无效的LLMID',
+            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
+        });
+    }
+    try {
+        const conversation = await Conversation.findOne({
+            where: {
+                userId: req.user.userId,
+                conversationId: userConversationId
+            }
+        });
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: '对话不存在或无权访问',
+            });
+        }
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
+        await conversationManager(req, res, conversation, message);
     } catch (error) {
         // 这里只有在设置响应头之前发生的错误才会执行
         console.error('LLM请求错误:', error.response?.data || error.message);
