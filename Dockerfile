@@ -28,13 +28,14 @@ ENV PYTHON_PATH=/opt/venv/bin/python
 COPY package*.json ./
 
 # 复制 Python 依赖文件
-COPY services/requirements.txt ./services/
+COPY requirements.txt ./
 
 # 安装 Node.js 依赖，只安装生产环境需要的包
-RUN npm ci || npm install
+RUN npm install
 
 # 安装 Python 依赖
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # 复制项目文件到工作目录
 COPY . .
