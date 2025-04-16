@@ -8,44 +8,44 @@ const promptManager = require('../services/promptManager')
 
 // 创建新的对话
 exports.createNewConversation = async (req, res) => {
-    const error = validationResult(req);
-    if (!error.isEmpty()) {
-        return res.status(400).json({
-            success: false,
-            message: '参数验证失败',
-            errors: error.array()
-        });
-    }
-    const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话" } = req.body;
-    if (!message) {
-        return res.status(400).json({
-            success: false,
-            message: '缺少必要参数',
-            details: 'message是必需的'
-        });
-    }
-    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的LLMID',
-            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
-        });
-    }
-    // 创建新的对话
-    let conversation;
-    const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
-    res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
     try {
+        const error = validationResult(req);
+        if (!error.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: error.array()
+            });
+        }
+        const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话" } = req.body;
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                message: '缺少必要参数',
+                details: 'message是必需的'
+            });
+        }
+        if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
+            return res.status(400).json({
+                success: false,
+                message: '无效的LLMID',
+                details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
+            });
+        }
+        // 创建新的对话
+        let conversation;
+        const nextConversationId = await Conversation.getNextConversationId(req.user.userId);
         conversation = await Conversation.create({
             userId: req.user.userId,
             conversationId: nextConversationId,
             title
         });
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
+        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
         // 保存对话数据
         await conversationManager(req, res, conversation, message);
     } catch (e) {
@@ -76,10 +76,6 @@ const MCPManager = async (req, res, conversation, message) => {
             role: 'system',
             content: promptManager.basePrompt
         })
-        // historyMessages.push({
-        //     role: 'system',
-        //     content: promptManager.basePrompt
-        // });
         const model = LLM_CONFIG[3].model;
         const tools = await searchController.getToolslist();
         const data = {
@@ -139,6 +135,7 @@ const MCPManager = async (req, res, conversation, message) => {
                 role: 'system',
                 content: prompt + content
             }
+            res.write(`data: ${JSON.stringify({ MCPSuccess: true })}\n\n`);
             return toolResults
         }
         return 0
@@ -164,7 +161,6 @@ const conversationManager = async (req, res, conversation, message) => {
                 if (result) {
                     toolResults = result;
                     console.log('工具结果:', toolResults);
-                    res.write(`data: ${JSON.stringify({ MCPSuccess: true })}\n\n`);
                 }
                 return result;
             }).catch(e => {
@@ -244,6 +240,7 @@ const conversationManager = async (req, res, conversation, message) => {
             content: message
         });
         const model = LLM_CONFIG[LLMID].model;
+        const tools = await searchController.getToolslist();
         const data = {
             model,
             messages: historyMessages,
@@ -257,13 +254,15 @@ const conversationManager = async (req, res, conversation, message) => {
             n: 1,
             response_format: {
                 type: 'text'
-            }
+            },
+            tools
         };
         let resContent = '';
         let resReasoningContent = '';
         const response = await streamClient.post('/chat/completions', data);
         // 添加一个缓冲区变量
         let dataBuffer = '';
+        let streamingToolCalls = {};
         // 处理流式响应
         response.data.on('data', (chunk) => {
             const chunkText = chunk.toString();
@@ -290,10 +289,43 @@ const conversationManager = async (req, res, conversation, message) => {
                             if (jsonStart === -1) continue; // 没有找到JSON开始，跳过这个块
                             const jsonText = dataBlock.substring(jsonStart);
                             const parsedData = JSON.parse(jsonText);
+                            // 声明一个变量来跟踪流式工具调用
+                            
+                            // 在 response.data.on('data') 处理函数内修改处理工具调用的部分
                             if (parsedData.choices && parsedData.choices.length > 0) {
                                 const delta = parsedData.choices[0].delta;
                                 const content = delta.content || null;
                                 const reasoning_content = delta.reasoning_content || null;
+                                // 处理工具调用
+                                if (delta.tool_calls && delta.tool_calls.length > 0) {
+                                    for (const toolCall of delta.tool_calls) {
+                                        const index = toolCall.index;
+                                        // 初始化工具调用对象（如果不存在）
+                                        if (!streamingToolCalls[index]) {
+                                            streamingToolCalls[index] = {
+                                                index,
+                                                id: toolCall.id || null,
+                                                type: toolCall.type || null,
+                                                function: {
+                                                    name: toolCall.function?.name || null,
+                                                    arguments: ''
+                                                }
+                                            };
+                                        }
+                                        // 更新工具调用对象
+                                        if (toolCall.id) streamingToolCalls[index].id = toolCall.id;
+                                        if (toolCall.type) streamingToolCalls[index].type = toolCall.type;
+                                        if (toolCall.function) {
+                                            if (toolCall.function.name) {
+                                                streamingToolCalls[index].function.name = toolCall.function.name;
+                                            }
+                                            if (toolCall.function.arguments) {
+                                                streamingToolCalls[index].function.arguments += toolCall.function.arguments;
+                                            }
+                                        }
+                                        console.log(`工具调用更新 [${index}]:`, streamingToolCalls[index]);
+                                    }
+                                }
                                 if (content) {
                                     resContent += content;
                                 }
@@ -331,6 +363,27 @@ const conversationManager = async (req, res, conversation, message) => {
         });
         response.data.on('end', async () => {
             try {
+                // 处理完成的工具调用
+                if (Object.keys(streamingToolCalls).length > 0) {
+                    console.log('完整的工具调用:', Object.values(streamingToolCalls));
+                    // 这里可以添加代码来处理完整的工具调用
+                    // 例如，可以调用 searchController.callTool 来执行工具调用
+                    const toolCallPromises = Object.values(streamingToolCalls)
+                        .filter(tool => tool.function?.name && tool.function?.arguments)
+                        .map(async (tool) => {
+                            try {
+                                const args = JSON.parse(tool.function.arguments);
+                                return searchController.callTool(tool.function.name, args);
+                            } catch (e) {
+                                console.error(`解析或执行工具调用失败: ${tool.function.name}`, e);
+                                return null;
+                            }
+                        });
+                    // 如果需要等待工具调用完成，可以使用 Promise.all
+                    const toolResults = await Promise.all(toolCallPromises);
+                    console.log('工具调用结果:', toolResults);
+                    
+                }
                 if (resContent) {
                     await Message.create({
                         conversationId: conversation.id,

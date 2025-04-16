@@ -1,4 +1,4 @@
-<h1 style="display:flex;justify-content:center">GESeek-Server</h1>
+<h1 style="display:flex;justify-content:center">GEAgent-Server</h1>
 
 ### 该项目使用 *硅基流动* 作为LLM服务平台，请参照该文档进行环境配置
 

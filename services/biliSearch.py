@@ -9,7 +9,7 @@ sys.stderr.write(f'操作系统: {platform.system()} {platform.release()}\n')
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.prompts import base
-from bilibili_api import search, sync, select_client, request_settings
+from bilibili_api import search, select_client, request_settings, hot, rank, sync
 
 
 
@@ -18,9 +18,9 @@ request_settings.set("impersonate", "chrome131")
 mcp = FastMCP('BiliSearch')
 
 @mcp.tool()
-def bili_search(keyword: str) -> dict:
+async def biliSearch(keyword: str) -> str:
     """
-    在B站（一个大型视频信息聚合网站）以关键词检索信息
+    在B站（一个大型视频信息聚合网站）以关键词检索信息，获取综合信息，一般不包含需付费的资源
     
     Args:
         keyword: 要进行搜索的关键词，可以是视频标题、UP主名称等
@@ -42,10 +42,12 @@ def bili_search(keyword: str) -> dict:
                 like:点赞数
                 description:视频简介
                 tags:视频标签
+                url:视频链接
+                bvid:视频BV号
     """
     sys.stderr.write(f"正在搜索: {keyword}\n")
     try:
-        raw_result = sync(search.search(keyword))
+        raw_result = await search.search(keyword)
         # 使用格式化函数处理结果
         return extract_up_user_info(raw_result)
     except Exception as e:
@@ -149,7 +151,9 @@ def extract_up_user_info(raw_result: dict) -> dict:
                                 "favorite": work.get("fav", 0)
                             },
                             "description": work.get("desc", ""),
-                            "duration": work.get("duration", "")
+                            "duration": work.get("duration", ""),
+                            "url": work.get("arcurl", ""),
+                            "bvid": work.get("bvid", "")
                         }
                         extra_data["representative_works"].append(extra_video)
                         data["representative_works"].append(video)
@@ -199,6 +203,8 @@ def extract_up_user_info(raw_result: dict) -> dict:
                         },
                         "description": video_data.get("description", ""),
                         "duration": video_data.get("duration", ""),
+                        "url": video_data.get("arcurl", ""),
+                        "bvid": video_data.get("bvid", ""),
                         "tags": video_data.get("tag", "").split(",") if video_data.get("tag") else []
                     }
                     extra_data["videos"].append(extra_video)
@@ -209,11 +215,67 @@ def extract_up_user_info(raw_result: dict) -> dict:
                 
                 # 视频信息提取完成后记录日志
                 if extra_data["videos"]:
-                    sys.stderr.write(f"提取了 {len(extra_data['videos'])} 个视频信息\n")
+                    sys.stderr.write(f"提取了 {len(data['videos'])} 个视频信息\n")
                 
                 # 只处理第一个视频结果组
                 break
     return { "extra_data": extra_data, "data": data }
+
+@mcp.tool()
+async def biliSearch_cheese(keyword) -> str:
+    """
+    在B站搜索课程（cheese）相关内容，大部分课程需要付费，但专一性强
+    
+    Args:
+        keyword: 要搜索的课程关键词
+        
+    Returns:
+        一个包含搜索结果的文本内容
+        attr:
+            cheeses: 课程列表
+                title: 课程标题
+                ep_count: 课程集数
+                first_ep_title: 第一集标题
+                price_format: 价格
+                coupon_price_format: 优惠价格
+                hot_rank_message: 热门排名信息
+                subtitle: 副标题
+                up_name: UP主名称
+    """
+    data = {
+        "cheeses": []
+    }
+    extra_data = {
+        "cheeses": []
+    }
+    try:
+        sys.stderr.write(f"正在搜索: {keyword}\n")
+        raw_result = await search.search_cheese(keyword, 1, 10)
+        sys.stderr.write(f"搜索结果: {raw_result}\n")
+        for item in raw_result['items']:
+            title = clean_html_tags(item.get("title", ""))
+            cheese = {
+                "ep_count": item.get("ep_count", ""),
+                "first_ep_title": item.get("first_ep_title", ""),
+                "price_format": item.get("price_format", ""),
+                "coupon_price_format": item.get("coupon_price_format", ""),
+                "hot_rank_message": item.get("hot_rank_message", ""),
+                "subtitle": item.get("subtitle", ""),
+                "title": title,
+                "up_name": item.get("up_name", "")
+            }
+            extra_cheese = {
+                **cheese,
+                "cover": item.get("cover", ""),
+                "link": item.get("link", "")
+            }
+            data["cheeses"].append(cheese)
+            extra_data["cheeses"].append(extra_cheese)
+        sys.stderr.write(f"提取了 {len(data['cheeses'])} 个课程信息\n")
+        return { "extra_data": extra_data, "data": data }
+    except Exception as e:
+        sys.stderr.write(f"搜索出错: {str(e)}\n")
+        return {"error": str(e), "success": False}
 
 @mcp.resource("config://app")
 def get_config() -> str:

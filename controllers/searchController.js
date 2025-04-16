@@ -74,7 +74,6 @@ exports.getMCPToolslist = async (req, res) => {
 
 exports.callTool = async (name, arguments) => {
     try {
-        console.log('调用工具请求数据:', name, arguments);
         const result = await mcp.callTool({
             name,
             arguments
@@ -135,6 +134,7 @@ const formattedResult = (result, toolName) => {
                     };
                 } catch (e) {
                     // 如果不是有效的 JSON，保留原始文本
+                    console.log('解析JSON失败:', e);
                     return item;
                 }
             }
@@ -145,6 +145,8 @@ const formattedResult = (result, toolName) => {
             content: processedContent
         };
     }
+    // console.log('格式化结果:', normalResult, extraData);
+    
     return {
         normalResult,
         extraData
