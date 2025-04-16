@@ -298,7 +298,10 @@ const conversationManager = async (req, res, conversation, message) => {
                                 const reasoning_content = delta.reasoning_content || null;
                                 // 处理工具调用
                                 if (delta.tool_calls && delta.tool_calls.length > 0) {
+                                    
                                     for (const toolCall of delta.tool_calls) {
+                                        console.log('工具调用:', toolCall);
+                                        
                                         const index = toolCall.index;
                                         // 初始化工具调用对象（如果不存在）
                                         if (!streamingToolCalls[index]) {
@@ -323,7 +326,7 @@ const conversationManager = async (req, res, conversation, message) => {
                                                 streamingToolCalls[index].function.arguments += toolCall.function.arguments;
                                             }
                                         }
-                                        console.log(`工具调用更新 [${index}]:`, streamingToolCalls[index]);
+                                        // console.log(`工具调用更新 [${index}]:`, streamingToolCalls[index]);
                                     }
                                 }
                                 if (content) {
