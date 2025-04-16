@@ -3,27 +3,33 @@ const { UserConfig } = require('../models');
 const LLM_CONFIG = [
     {
         model: "deepseek-ai/DeepSeek-R1",
-        max_tokens: 16384
+        max_tokens: 16384,
+        functionCall: true
     },
     {
         model: 'deepseek-ai/DeepSeek-V3',
-        max_tokens: 8192
+        max_tokens: 8192,
+        functionCall: true
     },
     {
         model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
-        max_tokens: 16384
+        max_tokens: 16384,
+        functionCall: true
     },
     {
         model: 'Qwen/QwQ-32B',
-        max_tokens: 32520
+        max_tokens: 32520,
+        functionCall: true
     },
     {
         model: 'Qwen/Qwen2.5-72B-Instruct-128K',
-        max_tokens: 4096
+        max_tokens: 4096,
+        functionCall: true
     },
     {
         model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B',
-        max_tokens: 16384
+        max_tokens: 16384,
+        functionCall: true
     }
 ]
 

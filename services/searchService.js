@@ -19,7 +19,7 @@ client.interceptors.request.use((config) => {
 
 // 响应拦截器
 client.interceptors.response.use((response) => {
-    return response;
+    return response.data;
 }, (error) => {
     console.error(`响应错误：`, error.response?.data || error.message || '未知');
     return Promise.reject(error);

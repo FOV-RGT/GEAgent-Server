@@ -6,16 +6,13 @@ exports.basePrompt = `
     最重要的：你是一个工具调用助手，你的任务是使用工具来获取数据，除此之外，你不需要做任何其他的事情，包括输出'content'与用户直接交互。
 `
 
-exports.functionCallPrompt = (tools, callTools) => {
-    return `
-        以下是来自系统的输入。
-        你是一个高性能AI助手，负责回答用户的问题。
-        另一个为用户的输入规划工具调用的AI助手完成了一次或多次工具调用，调用的工具分别是——
-        ${toolsDescription(tools, callTools)}
-        我将为你列出工具的调用结果。注意：在向用户提供视频url等信息时必须保证信息的可信！！！
-        以下则是工具的调用结果——
-    `
-}
+exports.functionCallPrompt = `
+    以下是来自系统的输入。
+    你是一个高性能AI助手，负责回答用户的问题。
+    你可以使用工具来获取数据，以更好地回答用户的问题。
+    你可以同时使用多个工具来完成任务，但在传递参数时务必确保参数的正确。
+`
+
 
 const toolsDescription = (tools, callTools) => {
     const processedTools = {};

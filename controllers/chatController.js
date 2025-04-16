@@ -40,14 +40,29 @@ exports.createNewConversation = async (req, res) => {
             conversationId: nextConversationId,
             title
         });
+        const messages = await Message.findAll({
+            where: { conversationId: conversation.id },
+            order: [['createdAt', 'ASC']]
+        });
+        let historyMessages = messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+        }));
+        historyMessages.push({
+            role: 'user',
+            content: message
+        });
+        await Message.create({
+            conversationId: conversation.id,
+            role: 'user',
+            content: message
+        });
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
         res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
-        res.write(`data: ${JSON.stringify({ conversationId: nextConversationId, title })}\n\n`);
-        // 保存对话数据
-        await conversationManager(req, res, conversation, message);
+        conversationManager(req, res, conversation, historyMessages);
     } catch (e) {
         console.error('创建对话失败:', e);
         return res.write(`data: ${JSON.stringify({
@@ -58,129 +73,126 @@ exports.createNewConversation = async (req, res) => {
     }
 };
 
-const MCPManager = async (req, res, conversation, message) => {
+const MCPManager = async (res, conversation, toolCalls) => {
     try {
-        const messages = await Message.findAll({
-            where: { conversationId: conversation.id },
-            order: [['createdAt', 'ASC']]
-        });
-        const historyMessages = messages.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-        }));
-        historyMessages.push({
-            role: 'user',
-            content: message
-        });
-        historyMessages.push({
-            role: 'system',
-            content: promptManager.basePrompt
-        })
-        const model = LLM_CONFIG[3].model;
-        const tools = await searchController.getToolslist();
-        const data = {
-            model,
-            messages: historyMessages,
-            stream: false,
-            max_tokens: 1024,
-            stop: null,
-            temperature: 0.4,
-            top_p: 0.7,
-            top_k: 40,
-            frequent_penalty: 0.5,
-            n: 1,
-            response_format: {
-                type: 'text'
-            },
-            tools
-        };
-        const response = await normalClient.post('/chat/completions', data);
-        const resMessage = response.data.choices[0].message;
-        console.log('MCPManager消息:', resMessage);
-        const toolCall = resMessage?.tool_calls;
-        if (!resMessage || !resMessage?.tool_calls) {
-            return 0
-        }
-        console.log('工具调用:', toolCall);
         let toolCallPromise = [];
-        let calltools = []
-        for (const tool of toolCall) {
-            const fn = tool.function
-            if (fn) {
-                const name = fn.name;
-                calltools.push(name);
-                const arguments = JSON.parse(fn.arguments);
-                const callPromise = searchController.callTool(name, arguments)
-                    .catch((e) => {
-                        console.error('调用工具失败:', name, arguments);
-                        return res.write(`data: ${JSON.stringify({
-                            success: false,
-                            message: `调用工具 ${name} 失败`,
-                            details: e.message || '未知错误'
-                        })}\n\n`);
-                    });
-                toolCallPromise.push(callPromise);
-            }
+        let MCPStatus = {
+            status: 'running',
+            fnCall: [],
+            callResults: []
         }
-        const prompt = promptManager.functionCallPrompt(tools, calltools);
+        for (const tool of toolCalls) {
+            const name = tool.name;
+            const arguments = JSON.parse(tool.arguments);
+            MCPStatus.fnCall.push({
+                name,
+                arguments
+            });
+            const callPromise = searchController.callTool(name, arguments)
+                .catch((e) => {
+                    console.error('调用工具失败:', name, arguments);
+                    res.write(`data: ${JSON.stringify({
+                        success: false,
+                        message: `调用工具 ${name} 失败`,
+                        details: e.message || '未知错误'
+                    })}\n\n`);
+                    return Promise.reject({
+                        success: false,
+                        name
+                    });
+                });
+            toolCallPromise.push(callPromise);
+        }
+        res.write(`data: ${JSON.stringify({ MCPStatus })}\n\n`);
+        // const prompt = promptManager.functionCallPrompt(toolCalls, toolsArguments);
         const results = await Promise.allSettled(toolCallPromise);
-        let toolResults = null;
+        let callResults = null;
         let content = '';
+        let failedCalls = results
+            .filter(res => res.status === 'rejected')
+            .map(res => res.value)
+            .filter(Boolean);
         if (results.length > 0) {
             for (const res of results) {
+                if (res.status === 'rejected') continue
                 const text = res.value.normalResult.content[0].text || 'null'
                 content += `${text}\n --- \n`;
             }
-            toolResults = {
+            callResults = {
                 role: 'system',
-                content: prompt + content
+                content: content
             }
-            res.write(`data: ${JSON.stringify({ MCPSuccess: true })}\n\n`);
-            return toolResults
+            const callResult = MCPStatus.fnCall.map((tool) => {
+                if (failedCalls.length > 0) {
+                    if (failedCalls.some(call => call.name === tool.name)) {
+                        return {
+                            name: tool.name,
+                            success: false
+                        };
+                    }
+                }
+                return {
+                    name: tool.name,
+                    success: true
+                };
+            })
+            MCPStatus.callResults = callResult;
+            MCPStatus.status = 'completed';
+            res.write(`data: ${JSON.stringify({ MCPStatus })}\n\n`);
+            return callResults
         }
+        res.write(`data: ${JSON.stringify({
+            success: false,
+            message: '工具调用失败'
+        })}\n\n`);
         return 0
     } catch (e) {
         console.error('MCPManager错误:', e.message || '未知错误');
-        return res.write(`data: ${JSON.stringify({
+        res.write(`data: ${JSON.stringify({
             success: false,
             message: 'MCPManager错误',
             details: e.message || '未知错误'
         })}\n\n`);
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+        return 0
     }
 }
 
-const conversationManager = async (req, res, conversation, message) => {
+const conversationManager = async (req, res, conversation, historyMessages, round = 1) => {
     try {
-        const { LLMID, webSearch, MCP } = req.body;
+        const { LLMID, webSearch, enableMCPService, message } = req.body;
         const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
         const tasks = [];
         let toolResults = null;
         let searchRes = null;
-        if (MCP) {
-            const mcpTask = MCPManager(req, res, conversation, message).then(result => {
-                if (result) {
-                    toolResults = result;
-                    console.log('工具结果:', toolResults);
-                }
-                return result;
-            }).catch(e => {
-                console.error('MCP处理错误:', e);
-                res.write(`data: ${JSON.stringify({
-                    success: false,
-                    message: 'MCP处理错误',
-                    details: e.message || '未知错误'
-                })}\n\n`);
-                return null;
-            });
-            tasks.push(mcpTask);
-        }
+        let webSearchStatus = {
+            status: 'none'
+        };
+        // if (MCP) {
+        //     const mcpTask = MCPManager(req, res, conversation, message).then(result => {
+        //         if (result) {
+        //             toolResults = result;
+        //             console.log('工具结果:', toolResults);
+        //         }
+        //         return result;
+        //     }).catch(e => {
+        //         console.error('MCP处理错误:', e);
+        //         res.write(`data: ${JSON.stringify({
+        //             success: false,
+        //             message: 'MCP处理错误',
+        //             details: e.message || '未知错误'
+        //         })}\n\n`);
+        //         return null;
+        //     });
+        //     tasks.push(mcpTask);
+        // }
         if (webSearch) {
             let webSearchTask;
             if (!conversation.searchId) {
                 webSearchTask = searchController.createNewSearch(message).then(result => {
                     searchRes = result;
                     console.log('搜索结果:', searchRes);
-                    res.write(`data: ${JSON.stringify({ webSearchSuccess: true })}\n\n`);
                     conversation.searchId = searchRes.searchId;
                     return conversation.save();
                 }).catch(e => {
@@ -196,7 +208,6 @@ const conversationManager = async (req, res, conversation, message) => {
                 webSearchTask = searchController.search(message, conversation.searchId).then(result => {
                     searchRes = result;
                     console.log('搜索结果:', searchRes);
-                    res.write(`data: ${JSON.stringify({ webSearchSuccess: true })}\n\n`);
                     return result;
                 }).catch(e => {
                     console.error('搜索失败:', e);
@@ -208,39 +219,29 @@ const conversationManager = async (req, res, conversation, message) => {
                     return null;
                 });
             }
+            webSearchStatus.status = 'running';
+            res.write(`data: ${JSON.stringify({ webSearchStatus })}\n\n`);
             tasks.push(webSearchTask);
         }
-        if (tasks.length > 0) {
-            await Promise.all(tasks);
-        }
-        const messages = await Message.findAll({
-            where: { conversationId: conversation.id },
-            order: [['createdAt', 'ASC']]
-        });
-        let historyMessages = messages.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-        }));
-        if (toolResults) {
-            historyMessages.push(toolResults);
-        }
+        if (tasks.length > 0) await Promise.all(tasks);
         if (searchRes) {
+            webSearchStatus.status = 'completed';
+            res.write(`data: ${JSON.stringify({ webSearchStatus })}\n\n`);
             historyMessages.push({
                 role: "system",
                 content: promptManager.webSearchPrompt + searchRes.message || null
             });
         }
-        historyMessages.push({
-            role: 'user',
-            content: message
-        });
-        await Message.create({
-            conversationId: conversation.id,
-            role: 'user',
-            content: message
-        });
+        
         const model = LLM_CONFIG[LLMID].model;
-        const tools = await searchController.getToolslist();
+        let tools = null;
+        if (enableMCPService) {
+            tools = await searchController.getToolslist();
+            historyMessages.push({
+                role: "system",
+                content: promptManager.functionCallPrompt
+            });
+        }
         const data = {
             model,
             messages: historyMessages,
@@ -259,17 +260,17 @@ const conversationManager = async (req, res, conversation, message) => {
         };
         let resContent = '';
         let resReasoningContent = '';
+        res.write(`data: ${JSON.stringify({ postConversationRequest: true, round })}\n\n`);
         const response = await streamClient.post('/chat/completions', data);
         // 添加一个缓冲区变量
         let dataBuffer = '';
-        let streamingToolCalls = {};
+        let streamingToolCalls = [];
         // 处理流式响应
         response.data.on('data', (chunk) => {
             const chunkText = chunk.toString();
             try {
                 // 检查是否完成
                 if (chunkText.includes('[DONE]')) {
-                    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                     return;
                 }
                 // 将新数据添加到缓冲区
@@ -301,24 +302,14 @@ const conversationManager = async (req, res, conversation, message) => {
                                         const index = toolCall.index;
                                         // 初始化工具调用对象（如果不存在）
                                         if (!streamingToolCalls[index]) {
-                                            streamingToolCalls[index] = {
-                                                index,
-                                                id: toolCall.id || null,
-                                                type: toolCall.type || null,
-                                                function: {
-                                                    name: toolCall.function?.name || null,
-                                                    arguments: ''
-                                                }
-                                            };
+                                            streamingToolCalls.push({
+                                                name: toolCall.function?.name || null,
+                                                arguments: ''
+                                            });
                                         }
-                                        // 更新工具调用对象
-                                        if (toolCall.id) streamingToolCalls[index].id = toolCall.id;
-                                        if (toolCall.type) streamingToolCalls[index].type = toolCall.type;
-                                        if (toolCall.function?.name) {
-                                            streamingToolCalls[index].function.name = toolCall.function.name;
-                                        }
+                                        // 更新工具调用参数
                                         if (toolCall.function?.arguments) {
-                                            streamingToolCalls[index].function.arguments += toolCall.function.arguments;
+                                            streamingToolCalls[index].arguments += toolCall.function.arguments;
                                         }
                                     }
                                 }
@@ -355,30 +346,26 @@ const conversationManager = async (req, res, conversation, message) => {
         response.data.on('error', err => {
             console.error('流错误:', err);
             res.write(`data: ${JSON.stringify({ error: '流处理出错: ' + err.message })}\n\n`);
+            res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
             res.end();
         });
         response.data.on('end', async () => {
             try {
                 // 处理完成的工具调用
-                if (Object.keys(streamingToolCalls).length > 0) {
-                    console.log('完整的工具调用:', Object.values(streamingToolCalls));
-                    // 这里可以添加代码来处理完整的工具调用
-                    // 例如，可以调用 searchController.callTool 来执行工具调用
-                    const toolCallPromises = Object.values(streamingToolCalls)
-                        .filter(tool => tool.function?.name && tool.function?.arguments)
-                        .map(async (tool) => {
-                            try {
-                                const args = JSON.parse(tool.function.arguments);
-                                return searchController.callTool(tool.function.name, args);
-                            } catch (e) {
-                                console.error(`解析或执行工具调用失败: ${tool.function.name}`, e);
-                                return null;
-                            }
-                        });
-                    // 如果需要等待工具调用完成，可以使用 Promise.all
-                    const toolResults = await Promise.all(toolCallPromises);
-                    console.log('工具调用结果:', toolResults);
-                    
+                if (streamingToolCalls.length > 0) {
+                    console.log('完整的工具调用:', streamingToolCalls);
+                    const functionCallRes = await MCPManager(res, conversation, streamingToolCalls);
+                    if (functionCallRes) {
+                        historyMessages.push(functionCallRes);
+                        req.webSearch = false;
+                        conversationManager(req, res, conversation, historyMessages, ++round);
+                    } else {
+                        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+                        res.end();
+                    }
+                } else {
+                    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+                    res.end();
                 }
                 if (resContent) {
                     await Message.create({
@@ -390,7 +377,7 @@ const conversationManager = async (req, res, conversation, message) => {
                 }
             } catch (e) {
                 console.error('保存AI回复失败:', e);
-            } finally {
+                res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                 res.end();
             }
         });
@@ -454,12 +441,29 @@ exports.continuePreviousConversation = async (req, res) => {
                 message: '对话不存在或无权访问',
             });
         }
+        const messages = await Message.findAll({
+            where: { conversationId: conversation.id },
+            order: [['createdAt', 'ASC']]
+        });
+        let historyMessages = messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+        }));
+        historyMessages.push({
+            role: 'user',
+            content: message
+        });
+        await Message.create({
+            conversationId: conversation.id,
+            role: 'user',
+            content: message
+        });
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
         res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
-        await conversationManager(req, res, conversation, message);
+        conversationManager(req, res, conversation, historyMessages);
     } catch (error) {
         // 这里只有在设置响应头之前发生的错误才会执行
         console.error('LLM请求错误:', error.response?.data || error.message);
