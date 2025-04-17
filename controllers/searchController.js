@@ -16,10 +16,10 @@ exports.createNewSearch = async (query) => {
     try {
         const data = JSON.stringify({ app_id: process.env.SEARCH_APP_ID });
         const response = await client.post('/v2/app/conversation', data);
-        console.log('创建新搜索会话成功:', response);
+        console.log('创建新搜索会话成功:', response.data);
         return await exports.search(query, response.data.conversation_id);
     } catch (e) {
-        throw new Error(`创建新搜索会话失败: ${e.message || '未知错误'}`);
+        throw new Error('创建新搜索会话失败: ', e.message || '未知错误');
     }
 };
 
@@ -34,11 +34,11 @@ exports.search = async (query, conversation_id) => {
         console.log('搜索请求数据:', data);
         const response = await client.post('/v2/app/conversation/runs', data);
         return {
-            message: response.answer,
+            message: response.data.answer,
             searchId: conversation_id,
         };
     } catch (e) {
-        throw new Error(`搜索失败: ${e.message || '未知错误'}`);
+        throw new Error('搜索失败: ', e.message || '未知错误');
     }
 };
 
@@ -74,13 +74,14 @@ exports.getMCPToolslist = async (req, res) => {
 
 exports.callTool = async (name, arguments) => {
     try {
+        console.log('调用工具请求数据:', name, arguments);
         const result = await mcp.callTool({
             name,
             arguments
         });
         return formattedResult(result, name);
     } catch (e) {
-        throw new Error(`调用工具失败: ${e.message || '未知错误'}`);
+        throw new Error('调用工具失败: ', e.message || '未知错误');
     }
 }
 
@@ -134,7 +135,6 @@ const formattedResult = (result, toolName) => {
                     };
                 } catch (e) {
                     // 如果不是有效的 JSON，保留原始文本
-                    console.log('解析JSON失败:', e);
                     return item;
                 }
             }

@@ -48,7 +48,6 @@ exports.login = async (req, res) => {
                 id: user.id,
                 userId: user.userId,
                 username: user.username,
-                fullName: user.fullName,
                 email: user.email,
                 role: user.role
             },
@@ -126,7 +125,6 @@ exports.register = async (req, res) => {
                 id: newUser.id,
                 userId: newUser.userId,
                 username: newUser.username,
-                fullName: newUser.fullName,
                 email: newUser.email,
                 role: newUser.role
             },
@@ -249,7 +247,6 @@ exports.refreshToken = async (req, res) => {
                 id: user.id,
                 userId: user.userId,
                 username: user.username,
-                fullName: user.fullName,
                 email: user.email,
                 role: user.role
             },
@@ -468,7 +465,6 @@ exports.updatePassword = async (req, res) => {
                     id: user.id,
                     userId: user.userId,
                     username: user.username,
-                    fullName: user.fullName,
                     email: user.email,
                     role: user.role
                 },
