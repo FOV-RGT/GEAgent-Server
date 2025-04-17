@@ -17,7 +17,7 @@ exports.createNewConversation = async (req, res) => {
                 errors: error.array()
             });
         }
-        const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话" } = req.body;
+        const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话", enableMCPService } = req.body;
         if (!message) {
             return res.status(400).json({
                 success: false,
@@ -30,6 +30,13 @@ exports.createNewConversation = async (req, res) => {
                 success: false,
                 message: '无效的LLMID',
                 details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
+            });
+        }
+        if (!LLM_CONFIG[LLMID].functionCall && enableMCPService) {
+            return res.status(400).json({
+                success: false,
+                message: '当前模型不支持MCP服务',
+                details: '请使用支持MCP服务的模型'
             });
         }
         // 创建新的对话
@@ -116,10 +123,10 @@ const MCPManager = async (res, conversation, toolCalls) => {
                 if (res.status === 'rejected') continue
                 const text = res.value.normalResult.content[0].text || 'null'
                 const toolName = MCPStatus.fnCall[results.indexOf(res)].name;
-                content += `工具【${toolName}】返回结果:\n${text}\n --- \n`;
+                content += `你使用了function call功能调用了工具【${toolName}】，并返回了结果:\n${text}\n --- \n`;
             }
             callResults = {
-                role: 'system',
+                role: 'user',
                 content: content
             }
             const callResult = MCPStatus.fnCall.map((tool) => {
@@ -232,7 +239,6 @@ const conversationManager = async (req, res, conversation, historyMessages, roun
                 content: promptManager.webSearchPrompt + searchRes.message || null
             });
         }
-        
         const model = LLM_CONFIG[LLMID].model;
         let tools = null;
         if (enableMCPService) {
@@ -247,11 +253,10 @@ const conversationManager = async (req, res, conversation, historyMessages, roun
             messages: historyMessages,
             stream: true,
             max_tokens,
-            stop: null,
-            temperature: 0.4,
-            top_p: 0.7,
-            top_k: 40,
-            frequent_penalty: 0.5,
+            temperature,
+            top_p,
+            top_k,
+            frequent_penalty,
             n: 1,
             response_format: {
                 type: 'text'
@@ -268,6 +273,8 @@ const conversationManager = async (req, res, conversation, historyMessages, roun
         // 处理流式响应
         response.data.on('data', (chunk) => {
             const chunkText = chunk.toString();
+            console.log('流式数据:', chunkText);
+            
             try {
                 // 检查是否完成
                 if (chunkText.includes('[DONE]')) {
@@ -407,7 +414,7 @@ const conversationManager = async (req, res, conversation, historyMessages, roun
 
 // 继续上次对话
 exports.continuePreviousConversation = async (req, res) => {
-    const { message = "mygo和mujica哪个好看？", LLMID = 2 } = req.body;
+    const { message = "mygo和mujica哪个好看？", LLMID = 2, enableMCPService } = req.body;
     const userConversationId = parseInt(req.params.conversationId);
     if (isNaN(userConversationId) || userConversationId < 1) {
         return res.status(400).json({
@@ -426,18 +433,29 @@ exports.continuePreviousConversation = async (req, res) => {
     if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
         return res.status(400).json({
             success: false,
-            message: 'MCPManager错误',
-            details: e.message || '未知错误'
-        })}\n\n`);
+            message: '无效的LLMID',
+            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
+        });
     }
-}
-
-const conversationManager = async (req, res, conversation, message) => {
+    if (!LLM_CONFIG[LLMID].functionCall && enableMCPService) {
+        return res.status(400).json({
+            success: false,
+            message: '当前模型不支持MCP服务',
+            details: '请使用支持MCP服务的模型'
+        });
+    }
     try {
-        const { LLMID, webSearch, MCP } = req.body;
-        const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
-        if (MCP) {
-            await MCPManager(req, res, conversation, message);
+        const conversation = await Conversation.findOne({
+            where: {
+                userId: req.user.userId,
+                conversationId: userConversationId
+            }
+        });
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: '对话不存在或无权访问',
+            });
         }
         const messages = await Message.findAll({
             where: { conversationId: conversation.id },
@@ -462,72 +480,6 @@ const conversationManager = async (req, res, conversation, message) => {
         res.flushHeaders();
         res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
         conversationManager(req, res, conversation, historyMessages);
-    } catch (error) {
-        // 这里只有在设置响应头之前发生的错误才会执行
-        console.error('LLM请求错误:', error.response?.data || error.message);
-        if (!res.headersSent) {
-            // 只有在响应头未发送时才设置状态和发送JSON
-            res.status(500).json({
-                success: false,
-                message: '处理请求时出错',
-                details: error.message || '未知'
-            });
-        } else {
-            // 如果响应头已发送，通过流式方式发送错误
-            try {
-                res.write(`data: ${JSON.stringify({ error: '处理出错: ' + (error.message || '未知') })}\n\n`);
-                res.end();
-            } catch (e) {
-                console.error('无法发送错误响应:', e);
-            }
-        }
-    }
-}
-
-// 继续上次对话
-exports.continuePreviousConversation = async (req, res) => {
-    const { message = "mygo和mujica哪个好看？", LLMID = 2 } = req.body;
-    const userConversationId = parseInt(req.params.conversationId);
-    if (isNaN(userConversationId) || userConversationId < 1) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的会话ID',
-            details: '会话ID必须是正整数'
-        });
-    }
-    if (!message) {
-        return res.status(400).json({
-            success: false,
-            message: '缺少必要参数',
-            details: 'message是必需的'
-        });
-    }
-    if (LLMID === null || LLMID === undefined || LLMID < 0 || LLMID >= LLM_CONFIG.length) {
-        return res.status(400).json({
-            success: false,
-            message: '无效的LLMID',
-            details: `LLMID必须在0到${LLM_CONFIG.length - 1}之间`
-        });
-    }
-    try {
-        const conversation = await Conversation.findOne({
-            where: {
-                userId: req.user.userId,
-                conversationId: userConversationId
-            }
-        });
-        if (!conversation) {
-            return res.status(404).json({
-                success: false,
-                message: '对话不存在或无权访问',
-            });
-        }
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
-        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
-        await conversationManager(req, res, conversation, message);
     } catch (error) {
         // 这里只有在设置响应头之前发生的错误才会执行
         console.error('LLM请求错误:', error.response?.data || error.message);

@@ -1,4 +1,5 @@
 const { client } = require('../services/searchService');
+const util = require('util');
 require('dotenv').config();
 const { getMCPClient } = require('../services/mcp-client');
 let mcp = null;
@@ -44,15 +45,34 @@ exports.search = async (query, conversation_id) => {
 
 exports.getToolslist = async () => {
     const result = await mcp.listTools();
-    const formattedTools = result.tools.map(tool => ({
-        type: 'function',
-        function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.inputSchema
+    
+    const formattedTools = result.tools.map(tool => {
+        // 处理每个属性，添加描述
+        const enhancedProperties = {};
+        
+        // 遍历 properties 对象的所有键
+        if (tool.inputSchema.properties) {
+            Object.keys(tool.inputSchema.properties).forEach(key => {
+                const prop = tool.inputSchema.properties[key];
+                prop.description = prop.title || '无描述';
+                delete prop.title;
+                enhancedProperties[key] = prop;
+            });
         }
-    }));
-    console.log('获取工具列表成功:', formattedTools);
+        
+        return {
+            type: 'function',
+            function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: {
+                    ...tool.inputSchema,
+                    properties: enhancedProperties
+                }
+            }
+        };
+    });
+    console.log('获取工具列表成功:', util.inspect(formattedTools, { depth: null, colors: true }));
     return formattedTools;
 }
 
