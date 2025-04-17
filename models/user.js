@@ -90,6 +90,12 @@ module.exports = (sequelize, DataTypes) => {
         modelName: 'User',
         tableName: 'users',
         timestamps: true,
+        indexes: [
+            {
+                unique: true,
+                fields: ['userId']
+            }
+        ],
         hooks: {
             // 加密密码的钩子
             beforeCreate: async (user) => {

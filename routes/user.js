@@ -25,7 +25,7 @@ router.get('/me', authenticateJWT, authController.getCurrentUser);
 router.get('/', authenticateJWT, authorizeRole(['admin']), authController.getAllUsers);
 
 // 创建用户路由 - 仅限管理员
-router.post('/create', authenticateJWT, authorizeRole(['admin']), validateUserCreation, authController.createUser);
+router.post('/create', authenticateJWT, authorizeRole(['admin']), validateRegister, authController.createUser);
 
 // 刷新令牌路由
 router.get('/refreshToken', authenticateJWT, authController.refreshToken);

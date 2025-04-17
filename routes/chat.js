@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateJWT } = require('../middleware/auth');
-const { validateConversationTitle } = require('../middleware/validators');
+const { validateConversationTitle, validatePaginationQuery } = require('../middleware/validators');
 const chatController = require('../controllers/chatController');
 const { findConfig } = require('../middleware/config');
 
@@ -15,7 +15,7 @@ router.post('/continue/:conversationId', authenticateJWT, findConfig, chatContro
 router.get('/list', authenticateJWT, chatController.getConversationsList);
 
 // 获取特定对话所有消息
-router.get('/list/:conversationId', authenticateJWT, chatController.getConversationData);
+router.get('/list/:conversationId', authenticateJWT, validatePaginationQuery, chatController.getConversationData);
 
 // 删除对话
 router.delete('/delete', authenticateJWT, chatController.deleteConversation);

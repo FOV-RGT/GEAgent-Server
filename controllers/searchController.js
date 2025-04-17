@@ -45,33 +45,14 @@ exports.search = async (query, conversation_id) => {
 
 exports.getToolslist = async () => {
     const result = await mcp.listTools();
-    
-    const formattedTools = result.tools.map(tool => {
-        // 处理每个属性，添加描述
-        const enhancedProperties = {};
-        
-        // 遍历 properties 对象的所有键
-        if (tool.inputSchema.properties) {
-            Object.keys(tool.inputSchema.properties).forEach(key => {
-                const prop = tool.inputSchema.properties[key];
-                prop.description = prop.title || '无描述';
-                delete prop.title;
-                enhancedProperties[key] = prop;
-            });
-        }
-        
-        return {
+    const formattedTools = result.tools.map(tool => ({
             type: 'function',
             function: {
                 name: tool.name,
                 description: tool.description,
-                parameters: {
-                    ...tool.inputSchema,
-                    properties: enhancedProperties
-                }
+                parameters: tool.inputSchema
             }
-        };
-    });
+    }));
     console.log('获取工具列表成功:', util.inspect(formattedTools, { depth: null, colors: true }));
     return formattedTools;
 }
@@ -122,7 +103,6 @@ exports.MCPCallTool = async (req, res) => {
         }
         const { normalResult, extraData } = await exports.callTool(name, arguments);
         res.json({
-            success: true,
             result: type === 'normal' ? normalResult : extraData,
         });
     } catch (e) {
@@ -145,12 +125,27 @@ const formattedResult = (result, toolName) => {
                 try {
                     // 尝试解析 JSON 字符串
                     const parsedText = JSON.parse(item.text);
+                    if (!parsedText.success) {
+                        extraData[toolName] = {
+                            success: false,
+                            error: parsedText.error || '未知错误'
+                        }
+                        return {
+                            ...item,
+                            text: parsedText.error || '未知错误',
+                            success: false
+                        }
+                    }
                     if (parsedText.extra_data) {
-                        extraData[toolName] = parsedText.extra_data;
+                        extraData[toolName] = {
+                            success: true,
+                            ...parsedText.extra_data
+                        };
                     }
                     return {
                         ...item,
-                        text: JSON.stringify(parsedText.data),
+                        success: true,
+                        text: JSON.stringify(parsedText.data)
                     };
                 } catch (e) {
                     // 如果不是有效的 JSON，保留原始文本
@@ -200,7 +195,7 @@ exports.getPrompt = async () => {
         console.log('获取提示词列表成功:', result);
         return result
     } catch (e) {
-        throw new Error('获取提示词列表失败: ', e.message || '未知错误');
+        throw new Error(`获取提示词列表失败:${e.message || 未知错误}`);
     }
 }
 
@@ -215,6 +210,32 @@ exports.routerGetPrompt = async (req, res) => {
         res.status(500).json({
             success: false,
             message: '获取提示词列表失败',
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.getResourcesList = async () => {
+    try {
+        const result = await mcp.listResources();
+        console.log('获取资源列表成功:', util.inspect(result, { depth: null, colors: true }));
+        return result;
+    } catch (e) {
+        throw new Error(`获取资源列表失败:${e.message || '未知错误'}`);
+    }
+}
+
+exports.routerGetResourcesList = async (req, res) => {
+    try {
+        res.json({
+            success: true,
+            resources: await exports.getResourcesList()
+        });
+    } catch (e) {
+        console.error('获取资源列表失败:', e);
+        res.status(500).json({
+            success: false,
+            message: '获取资源列表失败',
             details: e.message || '未知错误'
         });
     }

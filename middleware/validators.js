@@ -1,4 +1,4 @@
-const { check } = require('express-validator');
+const { check, params } = require('express-validator');
 
 // 登录验证
 exports.validateLogin = [
@@ -26,14 +26,6 @@ exports.validateRegister = [
         .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符')
         .escape()
 ]
-
-// 用户创建验证
-exports.validateUserCreation = [
-    ...exports.validateRegister,
-    check('userId')
-        .optional({ checkFalsy: true })
-        .isInt({ min: 1, max: 100 }).withMessage('用户ID必须是1到100之间的整数')
-];
 
 // 验证对话标题
 exports.validateConversationTitle = [
@@ -81,4 +73,15 @@ exports.validateConfig = [
         .optional()
         .isFloat({ min: -2, max: 2 }).withMessage('frequent_penalty 必须是 -2 到 2 之间的浮点数')
         .customSanitizer(value => parseFloat(value))
+]
+
+exports.validatePaginationQuery = [
+    check('page')
+        .optional({ checkFalsy: true })
+        .isInt({ min: 1 }).withMessage('页码必须是大于0的整数')
+        .customSanitizer(value => parseInt(value)),
+    check('pageSize')
+        .optional({ checkFalsy: true })
+        .isInt({ min: 1, max: 100 }).withMessage('每页大小必须是1到100之间的整数')
+        .customSanitizer(value => parseInt(value)),
 ]

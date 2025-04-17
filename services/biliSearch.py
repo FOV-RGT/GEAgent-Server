@@ -17,13 +17,15 @@ select_client('curl_cffi')
 request_settings.set("impersonate", "chrome131")
 mcp = FastMCP('BiliSearch')
 
-@mcp.tool()
-async def biliSearch(keyword: str) -> dict:
+@mcp.tool(name="biliSearch", description="在B站搜索视频和UP主信息")
+async def biliSearch(keyword: str, quantity: int = 10, page: int = 1) -> dict:
     """
     在B站（一个大型视频信息聚合网站）以关键词检索信息，获取网络上的综合信息，一般不包含需付费的资源
     
     Args:
         keyword: 要进行搜索的关键词，可以是视频标题、UP主名称等
+        quantity: 要获取的搜索结果数量，默认为10
+        page: 搜索结果的页码，默认为1
     
     Returns:
         一个包含搜索结果的文本内容
@@ -47,9 +49,9 @@ async def biliSearch(keyword: str) -> dict:
     """
     sys.stderr.write(f"正在搜索: {keyword}\n")
     try:
-        raw_result = await search.search(keyword)
+        raw_result = await search.search(keyword, page)
         # 使用格式化函数处理结果
-        return extract_up_user_info(raw_result)
+        return extract_up_user_info(raw_result, quantity, page)
     except Exception as e:
         sys.stderr.write(f"搜索出错: {str(e)}\n")
         return {"error": str(e), "success": False}
@@ -61,7 +63,7 @@ def clean_html_tags(text):
     # 移除所有HTML标签
     return re.sub(r'<[^>]+>', '', text)
 
-def extract_up_user_info(raw_result: dict) -> dict:
+def extract_up_user_info(raw_result, quantity, page) -> dict:
     """
     从B站搜索结果中提取UP主信息和视频信息
     
@@ -72,11 +74,15 @@ def extract_up_user_info(raw_result: dict) -> dict:
         包含UP主信息和视频列表的字典
     """
     data = {
+        "quantity": quantity,
+        "page": page,
         "up_user": {},
         "representative_works": [],
         "videos": []
     }
     extra_data = {
+        "quantity": quantity,
+        "page": page,
         "up_user": {},
         "representative_works": [],
         "videos": []
@@ -210,7 +216,7 @@ def extract_up_user_info(raw_result: dict) -> dict:
                     extra_data["videos"].append(extra_video)
                     data["videos"].append(video)
                     video_count += 1
-                    if video_count >= 10:
+                    if video_count >= quantity:
                         break
                 
                 # 视频信息提取完成后记录日志
@@ -219,12 +225,12 @@ def extract_up_user_info(raw_result: dict) -> dict:
                 
                 # 只处理第一个视频结果组
                 break
-    return { "extra_data": extra_data, "data": data }
+    return { "success": True, "extra_data": extra_data, "data": data }
 
-@mcp.tool()
+@mcp.tool(name="biliSearch_cheese", description="在B站搜索课程相关内容")
 async def biliSearch_cheese(keyword) -> dict:
     """
-    在B站搜索网络上的课程（cheese）相关内容，大部分课程需要付费，但专一性强
+    在B站搜索网络上的课程（cheese）相关内容，大部分课程需要付费，少部分免费，但专一性强
     
     Args:
         keyword: 要搜索的课程关键词
@@ -307,11 +313,11 @@ async def getGEInfo(type: str) -> dict:
         ge_info = {
             "profile": {
                 "name": "GE酱",
-                "server_version": "0.4.3",
+                "server_version": "0.5.0",
                 "client_version": "0.1.0",
                 "creator": "MyGO!!! 团队",
                 "birth_date": "2025-03-25",
-                "description": "一个不断进化的活泼可爱的二次元AI助手~，擅长使用各种工具搜索信息并以生动的方式呈现结果。未来将进化为统一各个子系统信息的超级Agent~，帮助用户更好地获取信息和服务。",
+                "description": "一个不断进化的活泼可爱的二次元AI助手~，擅长使用各种工具搜索信息并以生动的方式呈现结果。未来将进化为统一各个子系统信息的复合Agent~，帮助用户更好地获取信息和服务。",
                 "server_repository_url": "https://github.com/FOV-RGT/GESeek-Server",
                 "client_repository_url": "https://github.com/xl-xlxl/GESeek"
             },
@@ -370,13 +376,13 @@ async def getGEInfo(type: str) -> dict:
         }
         
         sys.stderr.write(f"提供GE酱信息\n")
-        return {"data": ge_info, "extra_data": ge_info}
+        return { "success": True, "extra_data": ge_info, "data": ge_info }
         
     except Exception as e:
         sys.stderr.write(f"获取GE酱信息出错: {str(e)}\n")
-        return {"error": str(e), "success": False}
+        return { "error": str(e), "success": False }
 
-@mcp.resource("config://app")
+@mcp.resource("config://app", description="应用配置")
 def get_config() -> str:
     """Static configuration data"""
 
