@@ -123,8 +123,8 @@ const MCPManager = async (res, toolCalls) => {
                 content += `你使用了function call功能调用了工具【${toolName}】，并返回了结果:\n${text}\n --- \n`;
             }
             fnCallResults = {
-                role: 'user',
-                content: content
+                role: 'system',
+                content
             }
             const callStatuses = MCPStatus.fnCall.map((tool) => {
                 if (failedCalls.length > 0) {
@@ -486,7 +486,7 @@ exports.continuePreviousConversation = async (req, res) => {
             web_search_used: !!webSearch,
             mcp_service: !!enableMCPService
         });
-        const historyMessages = await conversation.getPreviousMessages(6);
+        const historyMessages = await conversation.getPreviousMessages(10);
         historyMessages.push({
             role: 'user',
             content: message
@@ -557,7 +557,7 @@ exports.getConversationData = async (req, res) => {
             });
         }
         const userConversationId = parseInt(req.params.conversationId);
-        const { page = 1, pageSize = 10 } = req.body;
+        const { page = 1, pageSize = 10 } = req.query;
         if (isNaN(userConversationId)) {
             return res.status(400).json({
                 success: false,
@@ -578,6 +578,12 @@ exports.getConversationData = async (req, res) => {
             });
         }
         const pagingInteractions = await conversation.getPagingInteractions(page, pageSize);
+        if (pagingInteractions.interactions.rows.length === 0) {
+            return res.json({
+                success: false,
+                message: '没有找到对话消息',
+            });
+        }
         res.json({
             success: true,
             pagingInteractions

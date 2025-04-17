@@ -1,6 +1,6 @@
 'use strict';
 const {
-  Model
+  Model,
 } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Interaction extends Model {
@@ -13,7 +13,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'interaction_id',
         sourceKey: 'interaction_id',
         as: 'messages',
-        onDelete: 'CASCADE'
+        onDelete: 'CASCADE',
+        scope: {
+          conversationId: sequelize.col('Interaction.conversationId')
+        }
       });
     }
     static async getNextInteractionId(conversationId) {

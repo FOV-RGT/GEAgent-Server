@@ -11,7 +11,10 @@ module.exports = (sequelize, DataTypes) => {
       Message.belongsTo(models.Interaction, {
         foreignKey: 'interaction_id',
         targetKey: 'interaction_id',
-        as: 'interaction'
+        as: 'interaction',
+        scope: {
+          conversationId: sequelize.col('Message.conversationId')
+        }
       });
     }
     

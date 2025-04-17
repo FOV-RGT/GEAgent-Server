@@ -31,7 +31,11 @@ module.exports = (sequelize, DataTypes) => {
     }
     async getPagingInteractions(page, pageSize) {
       try {
-        const { count, rows } = await this.sequelize.models.Interaction.findAndCountAll({
+        const totalCount = await this.sequelize.models.Interaction.count({
+          where: { conversationId: this.id },
+          distinct: true, // 确保只计算唯一的交互
+        });
+        const interactions = await this.sequelize.models.Interaction.findAndCountAll({
           where: { conversationId: this.id },
           order: [
             ['startTime', 'DESC'],
@@ -41,22 +45,23 @@ module.exports = (sequelize, DataTypes) => {
           offset: (page - 1) * pageSize,
           include: {
             model: sequelize.models.Message,
-            as: 'messages'
+            as: 'messages',
+            where: { conversationId: this.id }
           }
         });
-        const totalPages = Math.ceil(count / pageSize);
+        const totalPages = Math.ceil(totalCount / pageSize);
         return {
           pagination: {
             page,
             pageSize,
-            totalInteractions: count,
+            totalInteractions: totalCount,
             totalPages,
             hasNextPage: page < totalPages,
             hasPreviousPage: page > 1,
             nextPage: page < totalPages ? page + 1 : null,
             previousPage: page > 1 ? page - 1 : null
           },
-          interactions: rows
+          interactions
         }
       } catch (e) {
         console.error('获取分页交互失败:', e);
@@ -74,7 +79,8 @@ module.exports = (sequelize, DataTypes) => {
           limit,
           include: {
             model: sequelize.models.Message,
-            as: 'messages'
+            as: 'messages',
+            where: { conversationId: this.id } 
           }
         });
         let totalMessages = [];
