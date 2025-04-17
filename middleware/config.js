@@ -22,6 +22,11 @@ const LLM_CONFIG = [
         functionCall: true
     },
     {
+        model: 'THUDM/GLM-Z1-32B-0414',
+        max_tokens: 16384,
+        functionCall: true
+    },
+    {
         model: 'Qwen/Qwen2.5-72B-Instruct-128K',
         max_tokens: 4096,
         functionCall: true
@@ -64,7 +69,7 @@ const findConfig = async (req, res, next) => {
             configs = await UserConfig.create({
                 userId,
                 LLMID: parseInt(LLMID),
-                max_tokens: 2048,
+                max_tokens: 4000,
                 temperature: 0.8,
                 top_p: 0.7,
                 top_k: 50,

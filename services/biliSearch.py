@@ -278,12 +278,12 @@ async def biliSearch_cheese(keyword) -> dict:
         return {"error": str(e), "success": False}
 
 @mcp.tool()
-async def getGEInfo() -> dict:
+async def getGEInfo(type: str) -> dict:
     """
     获取GE酱的详细信息，包括人设背景、功能特性及使用指南
     
     Args:
-        无需参数,只需传递调用工具的名称
+        type: 要获取的信息类型，只能是"all"
         
     Returns:
         包含GE酱详细信息的文本
