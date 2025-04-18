@@ -232,7 +232,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
         //     });
         //     tasks.push(mcpTask);
         // }
-        if (webSearch && connectionStatus.status) {
+        if (!webSearch && connectionStatus.status) {
             let webSearchTask;
             if (!conversation.searchId) {
                 webSearchTask = searchController.createNewSearch(message).then(result => {
@@ -550,7 +550,7 @@ exports.continuePreviousConversation = async (req, res) => {
             web_search_used: !!webSearch,
             mcp_service: !!enableMCPService
         });
-        const historyMessages = await conversation.getPreviousMessages(10);
+        const historyMessages = await conversation.getPreviousMessages(5);
         historyMessages.push({
             role: 'user',
             content: message
@@ -618,7 +618,6 @@ exports.getConversationsList = async (req, res) => {
         const { page = 1, pageSize = 10 } = req.query;
         const userId = req.user.userId
         const conversationsList = await Conversation.getConversationList(userId, page, pageSize);
-        console.log('对话列表:', conversationsList);
         if (conversationsList.conversations.length === 0) {
             return res.json({
                 success: false,

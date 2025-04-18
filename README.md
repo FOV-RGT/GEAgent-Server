@@ -47,22 +47,13 @@
 ## 配置环境变量
 - 将根目录下的`env.example`文件重命名为`.env`
 - 根据下表设置`.env`中的变量
-<!-- **attr:**
-  - **PORT**：该服务运行的端口
-  - **JWT_SECRET**：用于签名和验证用户认证令牌的密钥，确保其足够复杂且保密，影响系统安全
-  - **NODE_ENV**：运行环境
-  **NODE_ENV**枚举值: **`development` `test` `production`**
-  分别对应 **`开发环境` `测试环境` `生产环境`**
-  - **CHAT_API_KEY**：硅基流动平台的`API Key`
-  - **SEARCH_API_KEY**：百度智能云千帆的`API key`，作为调用搜索模型的凭证
-  - **SEARCH_APP_ID**：使用百度智能云千帆`AppBuilder`创建应用并发布后的`app_id`，该应用应能返回联网搜索结果
- -->
+
 | 变量名 | 必填 | 说明 | 示例值 |
-|:-:|:-:|:-:|:-:|
+| :---: | :---: | :---: | :---: |
 | PORT | 否 | 服务运行的端口 | 3000 |
 | TZ | 否 | 服务器时区设置 | 'Asia/Shanghai' |
 | NODE_ENV | 否 | 运行环境 | development |
-| JWT_SECRET | 是 | JWT签名密钥 | 399f5e625a4... |
+| JWT_SECRET | 是 | JWT签名密钥 | 394hbf5a4... |
 | CHAT_API_KEY | 是 | 硅基流动API密钥 | sk-tqulpvl... |
 | SEARCH_API_KEY | 是 | 百度千帆API密钥 | bce-v3/ALT... |
 | SEARCH_APP_ID | 是 | 百度千帆`AppBuilder`创建应用并发布后的`app_id` | 200d45e5-7b... |
@@ -70,6 +61,12 @@
 | OSS_ACCESS_KEY_SECRET | 是 | 阿里云服务ACCESS_KEY_SECRET | mh3qqNt1D... |
 | OSS_REGION | 是 | 阿里云OSS Bucket REGION | oss-cn-shenzhen |
 | OSS_BUCKET_NAME | 是 | 阿里云OSS Bucket Name | geseekbucket |
+| DB_HOST | 否 | 数据库主机地址 | 127.0.0.1 |
+| DB_PORT | 否 | 数据库端口 | 3308 |
+| DB_USER | 否 | 数据库用户名 | root |
+| DB_PASSWORD | 否 | 数据库密码 | 123456 |
+| DB_NAME | 否 | 数据库名称 | GEAgent_api_production |
+| FORCE_DB_CONFIG | 否 | 是否强制更新数据库配置 | false |
 
 > JWT_SECRET可参照以下方式创建
 ```js

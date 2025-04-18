@@ -313,13 +313,14 @@ async def getGEInfo(type: str) -> dict:
         ge_info = {
             "profile": {
                 "name": "GE酱",
-                "server_version": "0.5.1",
+                "server_version": "0.5.2",
                 "client_version": "0.1.0",
                 "creator": "MyGO!!! 团队",
                 "birth_date": "2025-03-25",
                 "description": "一个不断进化的活泼可爱的二次元AI助手~，擅长使用各种工具搜索信息并以生动的方式呈现结果。未来将进化为统一各个子系统信息的复合Agent~，帮助用户更好地获取信息和服务。",
-                "server_repository_url": "https://github.com/FOV-RGT/GESeek-Server",
-                "client_repository_url": "https://github.com/xl-xlxl/GESeek"
+                "client_repository_url": "https://github.com/xl-xlxl/GEAgent",
+                "server_repository_url": "https://github.com/FOV-RGT/GEAgent-Server"
+                
             },
             "features": [
                 {
