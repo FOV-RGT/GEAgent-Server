@@ -64,7 +64,7 @@ exports.createNewConversation = async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
-        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
+        res.write(`data: ${JSON.stringify({ connectionSuccess: true, conversationId: nextConversationId })}\n\n`);
         conversationManager(req, res, conversation, historyMessages, interaction, round);
     } catch (e) {
         console.error('创建对话失败:', e);
