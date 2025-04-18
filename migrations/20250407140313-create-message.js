@@ -9,6 +9,7 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER
       },
+      // 实际指向conversations表的主键id，存在命名混淆的问题，不改了喵~
       conversationId: {
         type: Sequelize.INTEGER,
         allowNull: false,
@@ -23,11 +24,26 @@ module.exports = {
         type: Sequelize.ENUM('user', 'assistant', 'system'),
         allowNull: false,
       },
-      content: {
+      interaction_id: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        comment: '跟踪同一次用户-模型交互的所有相关消息'
+      },
+      round: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+      },
+      assistant_output: {
         type: Sequelize.TEXT
       },
-      reasoning_content: {
+      assistant_reasoning_output: {
         type: Sequelize.TEXT
+      },
+      mcp_service_status: {
+        type: Sequelize.JSON
+      },
+      web_search_status: {
+        type: Sequelize.JSON
       },
       createdAt: {
         allowNull: false,
@@ -38,6 +54,7 @@ module.exports = {
         type: Sequelize.DATE
       }
     });
+    await queryInterface.addIndex('messages', ['interaction_id']);
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('messages');

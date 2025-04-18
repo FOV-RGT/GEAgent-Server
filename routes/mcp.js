@@ -11,4 +11,6 @@ router.get('/ping', authenticateJWT, searchController.ping);
 
 router.get('/prompts', authenticateJWT, searchController.routerGetPrompt);
 
+router.get('/resources', authenticateJWT, searchController.routerGetResourcesList);
+
 module.exports = router;

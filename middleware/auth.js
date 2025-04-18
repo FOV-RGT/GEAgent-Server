@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { User } = require('../models');
 require('dotenv').config();
 
 const authenticateJWT = (req, res, next) => {
@@ -11,11 +12,23 @@ const authenticateJWT = (req, res, next) => {
             });
         }
         const token = authHeader.split(' ')[1];
-        jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
             if (err) {
                 return res.status(403).json({
                     success: false,
                     message: 'Token无效或已过期'
+                });
+            }
+            const userData = await User.findOne({
+                where: {
+                    userId: user.userId,
+                    isActive: true
+                }
+            });
+            if (!userData) {
+                return res.status(403).json({
+                    success: false,
+                    message: '用户不存在或已被禁用'
                 });
             }
             req.user = user;
