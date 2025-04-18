@@ -284,8 +284,6 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
         // 处理流式响应
         response.data.on('data', (chunk) => {
             const chunkText = chunk.toString();
-            console.log('流式数据:', chunkText);
-            
             try {
                 // 检查是否完成
                 if (chunkText.includes('[DONE]')) {
@@ -525,18 +523,25 @@ exports.continuePreviousConversation = async (req, res) => {
 // 获取对话列表
 exports.getConversationsList = async (req, res) => {
     try {
-        const conversations = await Conversation.findAll({
-            where: { userId: req.user.userId },
-            order: [['updatedAt', 'DESC']],
-            attributes: ['id', 'conversationId', 'title', 'createdAt', 'updatedAt'],
-        });
-        if (conversations.length === 0) {
-            return res.json({
+        const error = validationResult(req);
+        if (!error.isEmpty()) {
+            return res.status(400).json({
                 success: false,
-                message: '没有找到对话',
+                message: '参数验证失败',
+                errors: error.array()
             });
         }
-        res.json({ success: true, conversations });
+        const { page = 1, pageSize = 10 } = req.query;
+        const userId = req.user.userId
+        const conversationsList = await Conversation.getConversationList(userId, page, pageSize);
+        console.log('对话列表:', conversationsList);
+        if (conversationsList.conversations.length === 0) {
+            return res.json({
+                success: false,
+                message: '没有找到对话'
+            });
+        }
+        res.json({ success: true, conversationsList });
     } catch (e) {
         console.error('获取对话列表失败:', e);
         res.status(500).json({

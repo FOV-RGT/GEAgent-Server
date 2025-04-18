@@ -17,6 +17,8 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: 'CASCADE'
       });
     }
+    
+    // 获取下一个对话ID
     static async getNextConversationId(userId) {
       try {
         const maxConversation = await this.findOne({
@@ -29,6 +31,8 @@ module.exports = (sequelize, DataTypes) => {
         return 1; // 默认返回1
       }
     }
+    
+    // 获取当前对话的所有交互
     async getPagingInteractions(page, pageSize) {
       try {
         const totalCount = await this.sequelize.models.Interaction.count({
@@ -68,6 +72,8 @@ module.exports = (sequelize, DataTypes) => {
         throw e
       }
     }
+    1
+    // 获取当前对话的所有消息
     async getPreviousMessages(limit) {
       try {
         const previousInteractions = await this.sequelize.models.Interaction.findAll({
@@ -99,6 +105,35 @@ module.exports = (sequelize, DataTypes) => {
         return totalMessages
       } catch (e) {
         console.error('获取上次用户输入失败:', e);
+        throw e;
+      }
+    }
+    static async getConversationList(userId, page, pageSize) {
+      try {
+        const offset = (page - 1) * pageSize;
+        const { count, rows } = await this.findAndCountAll({
+          where: { userId },
+          order: [['updatedAt', 'DESC']],
+          attributes: ['conversationId', 'title', 'createdAt','updatedAt'],
+          limit: pageSize,
+          offset
+        });
+        const totalPages = Math.ceil(count / pageSize);
+        return {
+          pagination: {
+            page,
+            pageSize,
+            totalConversations: count,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1,
+            nextPage: page < totalPages ? page + 1 : null,
+            previousPage: page > 1 ? page - 1 : null
+          },
+          conversations: rows
+        }
+      } catch (e) {
+        console.error('获取对话列表失败:', e);
         throw e;
       }
     }

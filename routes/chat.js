@@ -12,7 +12,7 @@ router.post('/create', authenticateJWT, validateConversationTitle, findConfig, c
 router.post('/continue/:conversationId', authenticateJWT, findConfig, chatController.continuePreviousConversation);
 
 // 获取对话列表
-router.get('/list', authenticateJWT, chatController.getConversationsList);
+router.get('/list', authenticateJWT, validatePaginationQuery, chatController.getConversationsList);
 
 // 获取特定对话所有消息
 router.get('/list/:conversationId', authenticateJWT, validatePaginationQuery, chatController.getConversationData);

@@ -60,6 +60,7 @@
 | 变量名 | 必填 | 说明 | 示例值 |
 |:-:|:-:|:-:|:-:|
 | PORT | 否 | 服务运行的端口 | 3000 |
+| TZ | 否 | 服务器时区设置 | 'Asia/Shanghai' |
 | NODE_ENV | 否 | 运行环境 | development |
 | JWT_SECRET | 是 | JWT签名密钥 | 399f5e625a4... |
 | CHAT_API_KEY | 是 | 硅基流动API密钥 | sk-tqulpvl... |

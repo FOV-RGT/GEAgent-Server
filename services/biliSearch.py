@@ -313,7 +313,7 @@ async def getGEInfo(type: str) -> dict:
         ge_info = {
             "profile": {
                 "name": "GE酱",
-                "server_version": "0.5.0",
+                "server_version": "0.5.1",
                 "client_version": "0.1.0",
                 "creator": "MyGO!!! 团队",
                 "birth_date": "2025-03-25",
