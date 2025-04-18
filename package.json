@@ -1,6 +1,6 @@
 {
-  "name": "geseek-server",
-  "version": "0.5.0",
+  "name": "geagent-server",
+  "version": "0.5.2",
   "private": true,
   "scripts": {
     "start:dev": "cross-env NODE_ENV=development nodemon ./bin/www",
@@ -43,6 +43,7 @@
     "mysql2": "^3.14.0",
     "nodemon": "^3.1.9",
     "sequelize": "^6.37.7",
+    "sequelize-cli": "^6.6.2",
     "uuid": "^11.1.0"
   }
 }

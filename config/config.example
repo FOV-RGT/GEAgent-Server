@@ -2,7 +2,7 @@
   "development": {
     "username": "root",
     "password": "123456",
-    "database": "GESeek_api_development",
+    "database": "GEAgent_api_development",
     "host": "127.0.0.1",
     "dialect": "mysql",
     "port": "3308",
@@ -13,7 +13,7 @@
   "test": {
     "username": "root",
     "password": "123456",
-    "database": "GESeek_api_test",
+    "database": "GEAgent_api_test",
     "host": "127.0.0.1",
     "dialect": "mysql",
     "port": "3308",
@@ -24,7 +24,7 @@
   "production": {
     "username": "root",
     "password": "123456",
-    "database": "GESeek_api_production",
+    "database": "GEAgent_api_production",
     "host": "127.0.0.1",
     "dialect": "mysql",
     "port": "3308",

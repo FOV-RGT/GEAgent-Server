@@ -82,6 +82,6 @@ exports.validatePaginationQuery = [
         .customSanitizer(value => parseInt(value)),
     check('pageSize')
         .optional({ checkFalsy: true })
-        .isInt({ min: 1, max: 100 }).withMessage('每页大小必须是1到100之间的整数')
+        .isInt({ min: 1, max: 50 }).withMessage('每页大小必须是1到50之间的整数')
         .customSanitizer(value => parseInt(value)),
 ]

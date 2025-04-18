@@ -18,7 +18,7 @@ exports.createNewSearch = async (query) => {
         const data = JSON.stringify({ app_id: process.env.SEARCH_APP_ID });
         const response = await client.post('/v2/app/conversation', data);
         console.log('创建新搜索会话成功:', response);
-        return await exports.search(query, response.data.conversation_id);
+        return await exports.search(query, response.conversation_id);
     } catch (e) {
         throw new Error(`创建新搜索会话失败: ${e.message || '未知错误'}`);
     }
