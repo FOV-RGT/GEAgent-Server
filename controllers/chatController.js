@@ -284,6 +284,8 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
         // 处理流式响应
         response.data.on('data', (chunk) => {
             const chunkText = chunk.toString();
+            console.log('流式数据:', chunkText);
+            
             try {
                 // 检查是否完成
                 if (chunkText.includes('[DONE]')) {
