@@ -72,7 +72,7 @@ module.exports = (sequelize, DataTypes) => {
         throw e
       }
     }
-    1
+    
     // 获取当前对话的所有消息
     async getPreviousMessages(limit) {
       try {

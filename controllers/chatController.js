@@ -232,7 +232,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
         //     });
         //     tasks.push(mcpTask);
         // }
-        if (!webSearch && connectionStatus.status) {
+        if (webSearch && connectionStatus.status) {
             let webSearchTask;
             if (!conversation.searchId) {
                 webSearchTask = searchController.createNewSearch(message).then(result => {
