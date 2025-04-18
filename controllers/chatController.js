@@ -150,7 +150,7 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
                 content += `你使用了function call功能调用了工具【${toolName}】，并返回了结果:\n${text}\n --- \n`;
             }
             fnCallResults = {
-                role: 'system',
+                role: 'user',
                 content
             }
             const callStatuses = MCPStatus.fnCall.map((tool) => {
@@ -436,6 +436,10 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                     console.log('完整的工具调用:', toolCalls);
                     const functionCallRes = await MCPManager(res, toolCalls, connectionStatus);
                     if (functionCallRes.fnCallResults) {
+                        historyMessages.push({
+                            role: 'user',
+                            content: resContent || null
+                        })
                         historyMessages.push(functionCallRes.fnCallResults);
                         MCPStatus = functionCallRes.MCPStatus;
                         req.webSearch = false;
