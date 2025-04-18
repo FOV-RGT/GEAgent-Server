@@ -203,7 +203,6 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
 
 const conversationManager = async (req, res, conversation, historyMessages, interaction, round = 1, connectionStatus, controller) => {
     try {
-
         const { LLMID, webSearch, enableMCPService, message } = req.body;
         const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
         const tasks = [];
@@ -276,7 +275,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
             webSearchStatus.status = 'completed';
             res.write(`data: ${JSON.stringify({ webSearchStatus })}\n\n`);
             historyMessages.push({
-                role: "system",
+                role: "user",
                 content: promptManager.webSearchPrompt + searchRes.message || null
             });
         }
@@ -442,7 +441,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                         })
                         historyMessages.push(functionCallRes.fnCallResults);
                         MCPStatus = functionCallRes.MCPStatus;
-                        req.webSearch = false;
+                        req.body.webSearch = false;
                         conversationManager(req, res, conversation, historyMessages, interaction, round + 1, connectionStatus, controller);
                     } else {
                         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
