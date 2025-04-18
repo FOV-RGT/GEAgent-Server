@@ -61,11 +61,31 @@ exports.createNewConversation = async (req, res) => {
             content: message
         })
         res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.setHeader('Content-Encoding', 'identity');
         res.flushHeaders();
-        res.write(`data: ${JSON.stringify({ connectionSuccess: true, conversationId: nextConversationId })}\n\n`);
-        conversationManager(req, res, conversation, historyMessages, interaction, round);
+        const connectionStatus = {
+            status: true
+        };
+        const controller = new AbortController();
+        const handleClose = async () => {
+            if (!controller.signal.aborted) {
+                try {
+                    console.log('连接终止处理完成');
+                    controller.abort();
+                    connectionStatus.status = false;
+                    await interaction.stop();
+                } catch (e) {
+                    console.error('终止错误:', e.message);
+                }
+            }
+        };
+        req.on('aborted', handleClose);
+        req.on('close', handleClose);
+        res.write(`data: ${JSON.stringify({ connection: connectionStatus.status, conversationId: nextConversationId })}\n\n`);
+        conversationManager(req, res, conversation, historyMessages, interaction, round, connectionStatus, controller);
     } catch (e) {
         console.error('创建对话失败:', e);
         return res.write(`data: ${JSON.stringify({
@@ -76,7 +96,7 @@ exports.createNewConversation = async (req, res) => {
     }
 };
 
-const MCPManager = async (res, toolCalls) => {
+const MCPManager = async (res, toolCalls, connectionStatus) => {
     try {
         let toolCallPromise = [];
         let MCPStatus = {
@@ -93,7 +113,7 @@ const MCPManager = async (res, toolCalls) => {
             });
             const callPromise = searchController.callTool(name, arguments)
                 .catch((e) => { // 实际上正常的callTool并不会触发catch，因为server无法直接抛出错误，否则程序将会崩溃。
-                // 推测是并未捕获server或client的应用级错误，导致express崩溃
+                    // 推测是并未捕获server或client的应用级错误，导致express崩溃
                     console.error('调用工具失败:', name, arguments);
                     res.write(`data: ${JSON.stringify({
                         success: false,
@@ -115,6 +135,13 @@ const MCPManager = async (res, toolCalls) => {
             .filter(res => res.status === 'rejected')
             .map(res => res.value)
             .filter(Boolean);
+        if (!connectionStatus.status) {
+            MCPStatus.status = 'stop'
+            return {
+                fnCallResults: null,
+                MCPStatus
+            }
+        }
         if (results.length > 0) {
             for (const res of results) {
                 if (res.status === 'rejected') continue
@@ -174,8 +201,9 @@ const MCPManager = async (res, toolCalls) => {
     }
 }
 
-const conversationManager = async (req, res, conversation, historyMessages, interaction, round = 1) => {
+const conversationManager = async (req, res, conversation, historyMessages, interaction, round = 1, connectionStatus, controller) => {
     try {
+
         const { LLMID, webSearch, enableMCPService, message } = req.body;
         const { max_tokens, temperature, top_p, top_k, frequent_penalty } = req.configs;
         const tasks = [];
@@ -205,7 +233,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
         //     });
         //     tasks.push(mcpTask);
         // }
-        if (webSearch) {
+        if (webSearch && connectionStatus.status) {
             let webSearchTask;
             if (!conversation.searchId) {
                 webSearchTask = searchController.createNewSearch(message).then(result => {
@@ -215,6 +243,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                     return conversation.save();
                 }).catch(e => {
                     console.error('创建新搜索会话失败:', e.message || '未知错误');
+                    webSearchStatus.status = 'failed';
                     res.write(`data: ${JSON.stringify({
                         success: false,
                         message: '创建新搜索会话失败',
@@ -229,6 +258,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                     return result;
                 }).catch(e => {
                     console.error('搜索失败:', e);
+                    webSearchStatus.status = 'failed';
                     res.write(`data: ${JSON.stringify({
                         success: false,
                         message: '搜索失败',
@@ -277,12 +307,24 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
         let resContent = '';
         let resReasoningContent = '';
         res.write(`data: ${JSON.stringify({ postConversationRequest: true, round })}\n\n`);
-        const response = await streamClient.post('/chat/completions', data);
+        if (!connectionStatus.status) return
+        const response = await streamClient.post('/chat/completions', data, {
+            signal: controller.signal
+        });
         // 添加一个缓冲区变量
         let dataBuffer = '';
         let toolCalls = [];
         // 处理流式响应
         response.data.on('data', (chunk) => {
+            if (!connectionStatus.status) {
+                // 尝试终止请求
+                try {
+                    response.request.abort();
+                } catch (e) {
+                    console.error('终止请求失败:', e);
+                }
+                return;
+            }
             const chunkText = chunk.toString();
             try {
                 // 检查是否完成
@@ -370,15 +412,34 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
         });
         response.data.on('end', async () => {
             try {
+                if (!connectionStatus.status) {
+                    try {
+                        await interaction.stop();
+                        if (resContent || resReasoningContent) {
+                            await Message.create({
+                                conversationId: conversation.id,
+                                role: 'assistant',
+                                assistant_output: resContent,
+                                assistant_reasoning_output: resReasoningContent,
+                                mcp_service_status: MCPStatus,
+                                web_search_status: webSearchStatus,
+                                round,
+                                interaction_id: interaction.interaction_id
+                            });
+                        }
+                    } catch (e) {
+                        console.error('停止交互失败:', e.message || '未知错误');
+                    }
+                }
                 // 处理完成的工具调用
                 if (toolCalls.length > 0) {
                     console.log('完整的工具调用:', toolCalls);
-                    const functionCallRes = await MCPManager(res, toolCalls);
+                    const functionCallRes = await MCPManager(res, toolCalls, connectionStatus);
                     if (functionCallRes.fnCallResults) {
                         historyMessages.push(functionCallRes.fnCallResults);
                         MCPStatus = functionCallRes.MCPStatus;
                         req.webSearch = false;
-                        conversationManager(req, res, conversation, historyMessages, interaction, round + 1);
+                        conversationManager(req, res, conversation, historyMessages, interaction, round + 1, connectionStatus, controller);
                     } else {
                         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                         res.end();
@@ -492,11 +553,31 @@ exports.continuePreviousConversation = async (req, res) => {
             content: message
         });
         res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.setHeader('Content-Encoding', 'identity');
         res.flushHeaders();
-        res.write(`data: ${JSON.stringify({ connectionSuccess: true })}\n\n`);
-        conversationManager(req, res, conversation, historyMessages, interaction, round);
+        const connectionStatus = {
+            status: true
+        };
+        const controller = new AbortController();
+        const handleClose = async () => {
+            if (!controller.signal.aborted) {
+                try {
+                    console.log('连接终止处理完成');
+                    controller.abort();
+                    connectionStatus.status = false;
+                    await interaction.stop();
+                } catch (e) {
+                    console.error('终止错误:', e.message);
+                }
+            }
+        };
+        req.on('aborted', handleClose);
+        req.on('close', handleClose);
+        res.write(`data: ${JSON.stringify({ connection: connectionStatus.status })}\n\n`);
+        conversationManager(req, res, conversation, historyMessages, interaction, round, connectionStatus, controller);
     } catch (error) {
         // 这里只有在设置响应头之前发生的错误才会执行
         console.error('LLM请求错误:', error.response?.data || error.message);
