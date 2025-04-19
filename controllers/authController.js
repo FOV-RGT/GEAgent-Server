@@ -157,24 +157,16 @@ exports.register = async (req, res) => {
 exports.getCurrentUser = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
-            attributes: [
-                'username',
-                'email',
-                'fullName',
-                'avatarId',
-                'role',
-                'lastLogin',
-                'isActive',
-                'createdAt',
-                'updatedAt'
-            ]
+            attributes: {
+                exclude: ['id', 'password']
+            }
         });
         if (!user) {
             return res.status(404).json({
                 success: false,
                 message: '用户不存在'
             });
-        }
+        }     
         res.json({
             success: true,
             user

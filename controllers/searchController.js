@@ -1,17 +1,14 @@
 const { client } = require('../services/searchService');
 const util = require('util');
 require('dotenv').config();
-const { getMCPClient } = require('../services/mcp-client');
-let mcp = null;
-getMCPClient()
-    .then((client) => {
-        mcp = client;
-        console.log('MCP初始化成功');
-    })
-    .catch(err => {
-        console.error('初始化MCP Client失败：', err);
-        return null;
-    });
+const { createMCPManager } = require('../services/mcp-client');
+
+const MCPManager = new createMCPManager()
+MCPManager.init().then(() => {
+    console.log('MCP初始化成功')
+}).catch((e) => {
+    console.error('MCP初始化失败:', e)
+})
 
 exports.createNewSearch = async (query) => {
     try {
@@ -44,17 +41,12 @@ exports.search = async (query, conversation_id) => {
 };
 
 exports.getToolslist = async () => {
-    const result = await mcp.listTools();
-    const formattedTools = result.tools.map(tool => ({
-            type: 'function',
-            function: {
-                name: tool.name,
-                description: tool.description,
-                parameters: tool.inputSchema
-            }
-    }));
-    console.log('获取工具列表成功:', util.inspect(formattedTools, { depth: null, colors: true }));
-    return formattedTools;
+    try {
+        const toolsList = await MCPManager.listTools();
+        return toolsList;
+    } catch (e) {
+        throw new Error(`获取工具列表失败:${e.message || '未知错误'}`);
+    }
 }
 
 exports.getMCPToolslist = async (req, res) => {
@@ -73,13 +65,10 @@ exports.getMCPToolslist = async (req, res) => {
     }
 }
 
-exports.callTool = async (name, arguments) => {
+exports.callTool = async (toolName, args) => {
     try {
-        const result = await mcp.callTool({
-            name,
-            arguments
-        });
-        return formattedResult(result, name);
+        const result = await MCPManager.callTool(toolName, args);
+        return formattedResult(result, toolName);
     } catch (e) {
         throw new Error(`调用工具失败: ${e.message || '未知错误'}`);
     }
@@ -118,6 +107,7 @@ exports.MCPCallTool = async (req, res) => {
 const formattedResult = (result, toolName) => {
     let normalResult = result;
     let extraData = {}
+    let extraCall = {}
     // 检查是否有需要解析的文本字段
     if (result && result.content && Array.isArray(result.content)) {
         const processedContent = result.content.map(item => {
@@ -142,6 +132,9 @@ const formattedResult = (result, toolName) => {
                             ...parsedText.extra_data
                         };
                     }
+                    if (parsedText.extra_call) {
+                        extraCall = parsedText.extra_call;
+                    }
                     return {
                         ...item,
                         success: true,
@@ -162,7 +155,8 @@ const formattedResult = (result, toolName) => {
     }
     return {
         normalResult,
-        extraData
+        extraData,
+        extraCall
     }
 }
 

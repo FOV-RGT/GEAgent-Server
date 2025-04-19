@@ -18,7 +18,7 @@ const LLM_CONFIG = [
     },
     {
         model: 'Qwen/QwQ-32B',
-        max_tokens: 16384,
+        max_tokens: 20480,
         functionCall: true
     },
     {
@@ -70,8 +70,8 @@ const findConfig = async (req, res, next) => {
                 userId,
                 LLMID: parseInt(LLMID),
                 max_tokens: 4000,
-                temperature: 0.8,
-                top_p: 0.7,
+                temperature: 1,
+                top_p: 0.9,
                 top_k: 50,
                 frequent_penalty: 0.5
             });
