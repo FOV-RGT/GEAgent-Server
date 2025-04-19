@@ -97,13 +97,13 @@ exports.createNewConversation = async (req, res) => {
 };
 
 const MCPManager = async (res, toolCalls, connectionStatus) => {
+    let MCPStatus = {
+        status: 'running',
+        fnCall: [],
+        callStatuses: []
+    }
     try {
         let toolCallPromise = [];
-        let MCPStatus = {
-            status: 'running',
-            fnCall: [],
-            callStatuses: []
-        }
         for (const tool of toolCalls) {
             const name = tool.name;
             const arguments = JSON.parse(tool.arguments);
@@ -143,11 +143,15 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
             }
         }
         if (results.length > 0) {
-            for (const res of results) {
-                if (res.status === 'rejected') continue
-                const text = res.value.normalResult.content[0].text || 'null'
-                const toolName = MCPStatus.fnCall[results.indexOf(res)].name;
-                content += `你使用了function call功能调用了工具【${toolName}】，并返回了结果:\n${text}\n --- \n`;
+            for (const result of results) {
+                if (result.status === 'rejected') continue
+                const text = result.value.normalResult.content[0].text || 'null';
+                const toolName = MCPStatus.fnCall[results.indexOf(result)].name;
+                content += `你使用了function_call功能调用了工具【${toolName}】，并返回了结果:\n${text}\n --- \n`;
+                if (Object.keys(result.value.extraCall).length > 0) {
+                    console.log('额外调用:', result.value.extraCall);
+                    res.write(`data: ${JSON.stringify({extraCall: result.value.extraCall})}\n\n`)
+                }
             }
             fnCallResults = {
                 role: 'user',
@@ -167,12 +171,15 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
                     success: true
                 };
             })
+            let needStop = false
+            if (callStatuses[0].name === 'emojiPack' && callStatuses.length === 1) needStop = true
             MCPStatus.callStatuses = callStatuses;
             MCPStatus.status = 'completed';
             res.write(`data: ${JSON.stringify({ MCPStatus })}\n\n`);
             return {
                 fnCallResults,
-                MCPStatus
+                MCPStatus,
+                needStop
             }
         }
         res.write(`data: ${JSON.stringify({
@@ -435,14 +442,16 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                     console.log('完整的工具调用:', toolCalls);
                     const functionCallRes = await MCPManager(res, toolCalls, connectionStatus);
                     if (functionCallRes.fnCallResults) {
-                        historyMessages.push({
-                            role: 'user',
-                            content: resContent || null
-                        })
-                        historyMessages.push(functionCallRes.fnCallResults);
-                        MCPStatus = functionCallRes.MCPStatus;
-                        req.body.webSearch = false;
-                        conversationManager(req, res, conversation, historyMessages, interaction, round + 1, connectionStatus, controller);
+                        if (!functionCallRes.needStop) {
+                            historyMessages.push({
+                                role: 'user',
+                                content: resContent || null
+                            })
+                            historyMessages.push(functionCallRes.fnCallResults);
+                            MCPStatus = functionCallRes.MCPStatus;
+                            req.body.webSearch = false;
+                            conversationManager(req, res, conversation, historyMessages, interaction, round + 1, connectionStatus, controller);
+                        }
                     } else {
                         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
                         res.end();

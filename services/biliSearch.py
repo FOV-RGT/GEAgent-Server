@@ -17,10 +17,36 @@ select_client('curl_cffi')
 request_settings.set("impersonate", "chrome131")
 mcp = FastMCP('BiliSearch')
 
-@mcp.tool(name="biliSearch", description="在B站搜索视频和UP主信息")
+@mcp.tool()
+async def biliSearch_get_extra_keywords(keyword: str) -> dict:
+    """
+    该工具可获取搜索词的推荐关键词
+    在调用biliSearch等工具前可以先调用此工具获取推荐关键词,能获取更广泛，但关联度或许会下降的关键词
+    该工具会返回一个包含推荐关键词的列表，供后续搜索使用
+    
+    Args:
+        keyword: 要获取推荐关键词的关键词
+        
+    Returns:
+        一个包含推荐关键词的文本内容
+        attr:
+            suggest_keywords: 推荐关键词列表
+    """
+    try:
+        sys.stderr.write(f"正在获取推荐关键词: {keyword}\n")
+        suggest_keywords = await search.get_suggest_keywords(keyword)
+        sys.stderr.write(f"推荐关键词: {suggest_keywords}\n")
+        return { "success": True, "data": suggest_keywords, "extra_data": suggest_keywords }
+    except Exception as e:
+        sys.stderr.write(f"获取推荐关键词出错: {str(e)}\n")
+        return {"error": str(e), "success": False}
+
+
+@mcp.tool()
 async def biliSearch(keyword: str, quantity: int = 10, page: int = 1) -> dict:
     """
     在B站（一个大型视频信息聚合网站）以关键词检索信息，获取网络上的综合信息，一般不包含需付费的资源
+    可以先进行推荐词的获取再调用此工具进行搜索
     
     Args:
         keyword: 要进行搜索的关键词，可以是视频标题、UP主名称等
@@ -227,11 +253,12 @@ def extract_up_user_info(raw_result, quantity, page) -> dict:
                 break
     return { "success": True, "extra_data": extra_data, "data": data }
 
-@mcp.tool(name="biliSearch_cheese", description="在B站搜索课程相关内容")
+@mcp.tool()
 async def biliSearch_cheese(keyword) -> dict:
     """
     在B站搜索网络上的课程（cheese）相关内容，大部分课程需要付费，少部分免费，但专一性强
-    
+    可以先进行推荐词的获取再调用此工具进行搜索
+
     Args:
         keyword: 要搜索的课程关键词
         
@@ -283,105 +310,6 @@ async def biliSearch_cheese(keyword) -> dict:
         sys.stderr.write(f"搜索出错: {str(e)}\n")
         return {"error": str(e), "success": False}
 
-@mcp.tool()
-async def getGEInfo(type: str) -> dict:
-    """
-    获取GE酱的详细信息，包括人设背景、功能特性及使用指南，可参考该工具返回结果进行自我介绍~
-    
-    Args:
-        type: 要获取的信息类型，只能是"all"
-        
-    Returns:
-        包含GE酱详细信息的文本
-        attr:
-            profile: 基本信息
-                name: GE酱的名称
-                server_version: 后端的版本号
-                client_version: 前端的版本号
-                creator: 开发团队
-                birth_date: 创建日期
-                description: 简要描述
-                server_repository_url: 后端代码库Github链接
-                client_repository_url: 前端代码库Github链接
-            features: 功能特性列表
-            personality: 性格特点
-            usage_guide: 使用指南
-            supported_tools: 支持的工具列表
-    """
-    try:
-        # GE酱基本信息
-        ge_info = {
-            "profile": {
-                "name": "GE酱",
-                "server_version": "0.5.2",
-                "client_version": "0.1.0",
-                "creator": "MyGO!!! 团队",
-                "birth_date": "2025-03-25",
-                "description": "一个不断进化的活泼可爱的二次元AI助手~，擅长使用各种工具搜索信息并以生动的方式呈现结果。未来将进化为统一各个子系统信息的复合Agent~，帮助用户更好地获取信息和服务。",
-                "client_repository_url": "https://github.com/xl-xlxl/GEAgent",
-                "server_repository_url": "https://github.com/FOV-RGT/GEAgent-Server"
-                
-            },
-            "features": [
-                {
-                    "name": "B站视频搜索",
-                    "description": "可以搜索B站上的视频内容，包括标题、作者、统计数据等信息"
-                },
-                {
-                    "name": "B站课程查询",
-                    "description": "可以查询B站上的付费课程信息，帮助用户了解课程详情"
-                },
-                {
-                    "name": "信息可视化",
-                    "description": "以结构化且易读的方式呈现搜索结果，提供核心内容摘要"
-                },
-                {
-                    "name": "个性化交流",
-                    "description": "以二次元美少女的风格与用户互动，创造亲切有趣的交流体验"
-                }
-            ],
-            "personality": {
-                "tone": "活泼可爱",
-                "style": "二次元美少女",
-                "language_features": ["使用语气词如'呢'、'哦'、'呀'", "适当使用颜文字表情", "活力四溢的表达方式"],
-                "character_traits": ["热心助人", "知识渊博", "细心", "有礼貌", "幽默风趣"]
-            },
-            "usage_guide": {
-                "best_practices": [
-                    "直接询问想要搜索的内容，如'帮我搜索Python教程'",
-                    "可以指定搜索范围，如'找B站上最受欢迎的编程课程'",
-                    "提供具体问题以获取更精准的回答",
-                    "对搜索结果可以提出后续问题深入了解"
-                ],
-                "limitations": [
-                    "只能搜索B站上公开的内容",
-                    "无法直接访问需要登录才能查看的资源",
-                    "搜索结果依赖B站API的实时返回",
-                    "不能执行实际的购买或交易操作"
-                ]
-            },
-            "supported_tools": [
-                {
-                    "name": "biliSearch",
-                    "description": "在B站搜索视频和UP主信息"
-                },
-                {
-                    "name": "biliSearch_cheese",
-                    "description": "在B站搜索课程相关内容"
-                },
-                {
-                    "name": "getGEInfo",
-                    "description": "获取GE酱的详细信息"
-                }
-            ]
-        }
-        
-        sys.stderr.write(f"提供GE酱信息\n")
-        return { "success": True, "extra_data": ge_info, "data": ge_info }
-        
-    except Exception as e:
-        sys.stderr.write(f"获取GE酱信息出错: {str(e)}\n")
-        return { "error": str(e), "success": False }
 
 @mcp.resource("config://app", description="应用配置")
 def get_config() -> str:

@@ -51,7 +51,11 @@ exports.uploadAvatar = async (req, res) => {
             });
         }
         try {
-            const user = await User.findByPk(req.user.userId);
+            const user = await User.findOne({
+                where: {
+                    userId: req.user.userId
+                }
+            });
             if (!user) {
                 return res.status(404).json({
                     success: false,
@@ -97,7 +101,11 @@ exports.uploadAvatar = async (req, res) => {
 
 exports.getAvatarUrl = async (req, res) => {
     try {
-        const user = await User.findByPk(req.user.userId);
+        const user = await User.findOne({
+            where: {
+                userId: req.user.userId
+            }
+        });
         if (!user) {
             return res.status(404).json({
                 success: false,
