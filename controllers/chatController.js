@@ -6,6 +6,16 @@ const { validationResult } = require('express-validator');
 const { LLM_CONFIG } = require('../middleware/config');
 const promptManager = require('../services/promptManager')
 
+
+/**
+ * 
+ * 别看了
+ * 这块就是纯纯屎山
+ * 一定会重构的（确信）
+ * 
+ */
+
+
 // 创建新的对话
 exports.createNewConversation = async (req, res) => {
     try {
@@ -172,7 +182,7 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
                 };
             })
             let needStop = false
-            if (callStatuses[0].name === 'emojiPack' && callStatuses.length === 1) needStop = true
+            // if (callStatuses[0].name === 'emojiPack' && callStatuses.length === 1) needStop = true
             MCPStatus.callStatuses = callStatuses;
             MCPStatus.status = 'completed';
             res.write(`data: ${JSON.stringify({ MCPStatus })}\n\n`);
@@ -451,6 +461,11 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                             MCPStatus = functionCallRes.MCPStatus;
                             req.body.webSearch = false;
                             conversationManager(req, res, conversation, historyMessages, interaction, round + 1, connectionStatus, controller);
+                        } else {
+                            MCPStatus = functionCallRes.MCPStatus;
+                            res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+                            res.end();
+                            interaction.complete();
                         }
                     } else {
                         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
