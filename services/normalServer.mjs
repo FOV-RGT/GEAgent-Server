@@ -19,7 +19,7 @@ mcp.tool(
             const ge_info = {
                 "profile": {
                     "name": "GE酱",
-                    "server_version": "0.5.3",
+                    "server_version": "0.5.4",
                     "client_version": "0.2.0",
                     "creator": "MyGO!!! 团队",
                     "birth_date": "2025-03-25",
@@ -116,9 +116,12 @@ mcp.tool(
 mcp.tool(
     "emojiPack",
     `
-    调用表情包来表达GE酱的情绪和反应。这个工具不会生成实际的图片链接，而是帮助GE酱在对话中表达更丰富的情感。
+    调用表情包来表达GE酱的情绪和反应。这个工具会在GE酱与用户的界面生成表情包，帮助GE酱在对话中表达更丰富的情感。
     GE酱应当根据对话情境积极调用合适的表情包来展示自己的情绪反应。
-    GE酱需要积极调用表情包哦~
+        【系统提醒！】
+        该工具需要你实际发起function_call功能，而不是在文本中回复用户表情包的id等信息
+        GE酱需要积极调用表情包哦~
+
     Args:
         - id: 表情包ID，范围是0-12，每个ID代表一种情绪状态
             - 0: 开心微笑 - 表达愉快、满足的情绪
@@ -140,43 +143,85 @@ mcp.tool(
     },
     async ({ id }) => {
         try {
+            if (id < 0 || id > 12) {
+                id = Math.floor(Math.random() * 13);
+            }
             const emotionMap = {
-                1: "开心微笑",
-                2: "伤心哭泣",
-                3: "惊讶",
-                4: "疑惑",
-                5: "害羞",
-                6: "得意",
-                7: "思考",
-                8: "兴奋",
-                9: "生气",
-                10: "无奈",
-                11: "专注",
-                12: "调皮"
+                0: "开心微笑",
+                1: "伤心哭泣",
+                2: "惊讶",
+                3: "疑惑",
+                4: "害羞",
+                5: "得意",
+                6: "思考",
+                7: "兴奋",
+                8: "生气",
+                9: "无奈",
+                10: "专注",
+                11: "调皮",
+                12: "搞怪"
             };
             // 情绪描述映射
             const emotionDescMap = {
-                1: "GE酱露出了开心的笑容，眼睛弯成月牙状",
-                2: "GE酱眼中含着泪水，看起来很伤心",
-                3: "GE酱睁大了眼睛，一脸震惊的表情",
-                4: "GE酱歪着头，露出困惑不解的表情",
-                5: "GE酱双颊泛红，害羞地低下了头",
-                6: "GE酱得意洋洋，骄傲地挺起胸膛",
-                7: "GE酱托着下巴，陷入深思的状态",
-                8: "GE酱激动地跳了起来，兴奋不已",
-                9: "GE酱鼓起脸颊，一脸不满的表情",
-                10: "GE酱耸耸肩，露出无奈的苦笑",
-                11: "GE酱眼神坚定，专注地盯着前方",
-                12: "GE酱眨着眼，露出俏皮的笑容"
+                0: "GE酱露出了开心的笑容，眼睛弯成月牙状",
+                1: "GE酱眼中含着泪水，看起来很伤心",
+                2: "GE酱睁大了眼睛，一脸震惊的表情",
+                3: "GE酱歪着头，露出困惑不解的表情",
+                4: "GE酱双颊泛红，害羞地低下了头",
+                5: "GE酱得意洋洋，骄傲地挺起胸膛",
+                6: "GE酱托着下巴，陷入深思的状态",
+                7: "GE酱激动地跳了起来，兴奋不已",
+                8: "GE酱鼓起脸颊，一脸不满的表情",
+                9: "GE酱耸耸肩，露出无奈的苦笑",
+                10: "GE酱眼神坚定，专注地盯着前方",
+                11: "GE酱眨着眼，露出俏皮的笑容",
+                12: "GE酱做了一个搞怪的鬼脸，调皮又可爱"
             };
-            const emotion = emotionMap[id] || "未知情绪";
-            const emotionDesc = emotionDescMap[id] || "GE酱展示了一个表情";
+            const webpMap = {
+                0: 17,
+                1: 7,
+                2: 13,
+                3: 22,
+                4: 21,
+                5: 19,
+                6: 6,
+                7: 16,
+                8: 24,
+                9: 27,
+                10: 4,
+                11: 24,
+                12: 23
+            }
+            const gifMap = {
+                0: 10,
+                1: 8,
+                2: 3,
+                3: 2,
+                4: 3,
+                5: 14,
+                6: 3,
+                7: 11,
+                8: 9,
+                9: 9,
+                10: 1,
+                11: 15,
+                12: 13
+            }
+            
+            const baseURL = 'https://geagent-emojipackbucket.oss-cn-shenzhen.aliyuncs.com'
+            const format = Math.random() < 0.3 ? "gif" : "webp";
+            const target = format === 'gif' ? gifMap : webpMap;
+            const randomEmoji = Math.floor(Math.random() * target[id] + 1);
+            const url = `${baseURL}/${format}/${id}/${randomEmoji}.${format}`;
+            console.log(`表情包URL: ${url}`);
             const extra_call = {
                 name: "emojiPack",
                 arguments: {
-                    id
+                    url
                 }
             }
+            const emotion = emotionMap[id] || "未知情绪";
+            const emotionDesc = emotionDescMap[id] || "GE酱展示了一个表情";
             const text = JSON.stringify({
                 success: true,
                 data: {
