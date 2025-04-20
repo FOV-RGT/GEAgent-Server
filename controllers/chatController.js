@@ -116,7 +116,7 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
         let toolCallPromise = [];
         for (const tool of toolCalls) {
             const name = tool.name;
-            const arguments = JSON.parse(tool.arguments);
+            const arguments = tool.arguments ? JSON.parse(tool.arguments) : {};
             MCPStatus.fnCall.push({
                 name,
                 arguments
@@ -157,14 +157,18 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
                 if (result.status === 'rejected') continue
                 const text = result.value.normalResult.content[0].text || 'null';
                 const toolName = MCPStatus.fnCall[results.indexOf(result)].name;
-                content += `你使用了function_call功能调用了工具【${toolName}】，并返回了结果:\n${text}\n --- \n`;
+                if (toolName === 'emojiPack' && toolCalls.length === 1) {
+                    content += `你使用了function_call功能调用了工具【${toolName}】，并已成功在用户界面展示表情，不需要在对话中添加JSON格式的信息描述。可在下一轮对话中继续调用表情包。\n`;
+                } else {
+                    content += `工具【${toolName}】调用结果:\n${text}\n请根据上述结果向用户提供信息，保持GE酱可爱的语气和风格。`;
+                }
                 if (Object.keys(result.value.extraCall).length > 0) {
                     console.log('额外调用:', result.value.extraCall);
                     res.write(`data: ${JSON.stringify({extraCall: result.value.extraCall})}\n\n`)
                 }
             }
             fnCallResults = {
-                role: 'user',
+                role: 'system',
                 content
             }
             const callStatuses = MCPStatus.fnCall.map((tool) => {
@@ -208,8 +212,6 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
             message: 'MCPManager错误',
             details: e.message || '未知错误'
         })}\n\n`);
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-        res.end();
         MCPStatus.status = 'failed';
         return {
             fnCallResults: null,
@@ -302,7 +304,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
             tools = await searchController.getToolslist();
             historyMessages.push({
                 role: "system",
-                content: promptManager.functionCallPrompt
+                content: promptManager.functionCallPrompt2
             });
         }
         const data = {
@@ -449,13 +451,26 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                 }
                 // 处理完成的工具调用
                 if (toolCalls.length > 0) {
+                    toolCalls = toolCalls.filter(toolCall => toolCall.name !== null);
                     console.log('完整的工具调用:', toolCalls);
                     const functionCallRes = await MCPManager(res, toolCalls, connectionStatus);
                     if (functionCallRes.fnCallResults) {
                         if (!functionCallRes.needStop) {
                             historyMessages.push({
-                                role: 'user',
+                                role: 'assistant',
                                 content: resContent || null
+                            })
+                            historyMessages.push({
+                                role: 'user',
+                                content: null
+                            })
+                            historyMessages.push({
+                                role: 'system',
+                                content: `当前正位于工具调用的对话回调阶段，用户无法输入内容，由系统代发空消息。
+                                不管用户输入了多少轮空内容，永远都只有一种情况：当前正在执行工具调用的对话回调。
+                                只要你发起工具调用，工具调用的对话回调将会一直循环。可主动结束表情包的发送以打破循环。
+                                禁止模仿先前的回答，提供任何未经确认的事实信息！
+                                `
                             })
                             historyMessages.push(functionCallRes.fnCallResults);
                             MCPStatus = functionCallRes.MCPStatus;
@@ -574,7 +589,7 @@ exports.continuePreviousConversation = async (req, res) => {
             web_search_used: !!webSearch,
             mcp_service: !!enableMCPService
         });
-        const historyMessages = await conversation.getPreviousMessages(5);
+        const historyMessages = await conversation.getPreviousMessages(4);
         historyMessages.push({
             role: 'user',
             content: message

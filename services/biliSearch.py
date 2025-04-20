@@ -21,7 +21,7 @@ mcp = FastMCP('BiliSearch')
 async def biliSearch_get_extra_keywords(keyword: str) -> dict:
     """
     该工具可获取搜索词的推荐关键词
-    在调用biliSearch等工具前可以先调用此工具获取推荐关键词,能获取更广泛，但关联度或许会下降的关键词
+    能获取更广泛，但精准度会下降的关键词
     该工具会返回一个包含推荐关键词的列表，供后续搜索使用
     
     Args:
@@ -47,6 +47,7 @@ async def biliSearch(keyword: str, quantity: int = 10, page: int = 1) -> dict:
     """
     在B站（一个大型视频信息聚合网站）以关键词检索信息，获取网络上的综合信息，一般不包含需付费的资源
     可以先进行推荐词的获取再调用此工具进行搜索
+    注意，搜索的结果不一定代表热度最高的内容，如需要，可进行多次调用，或扩大单次获取的结果数量
     
     Args:
         keyword: 要进行搜索的关键词，可以是视频标题、UP主名称等
