@@ -2,7 +2,7 @@ const { User } = require('../models');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
-const { storeVerificationCode, verifyCode, emailTransporter } = require('../services/emailService.js');
+const { storeVerificationCode, verifyCode, sendCodeEmail } = require('../services/emailService.js');
 
 // 登录
 exports.login = async (req, res) => {
@@ -392,97 +392,6 @@ exports.updateUser = async (req, res) => {
     }
 };
 
-// 更新密码
-exports.updatePassword = async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({
-            success: false,
-            errors: errors.array()
-        });
-    }
-    const { currentPassword, updatedPassword } = req.body;
-    const passwordRequestedValidate = !!currentPassword && !!updatedPassword
-    if (!passwordRequestedValidate) {
-        return res.status(400).json({
-            success: false,
-            message: '密码上传不完整'
-        });
-    }
-    try {
-        const user = await User.findByPk(req.params.userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: '用户不存在'
-            });
-        }
-        const isMatch = await user.validatePassword(currentPassword);
-        if (!isMatch) {
-            return res.status(401).json({
-                success: false,
-                message: '当前密码错误'
-            });
-        }
-        user.password = updatedPassword;
-        await user.save();
-        let token = null;
-        try {
-            const user = await User.findOne({
-                where: {
-                    id: req.user.id,
-                    isActive: true // 确保账号处于激活状态
-                },
-                attributes: [
-                    'id',
-                    'userId',
-                    'username',
-                    'email',
-                    'role'
-                ]
-            });
-            if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: '用户不存在或已被禁用'
-                });
-            }
-            // 生成新token
-            token = jwt.sign(
-                {
-                    id: user.id,
-                    userId: user.userId,
-                    username: user.username,
-                    fullName: user.fullName,
-                    email: user.email,
-                    role: user.role
-                },
-                process.env.JWT_SECRET,
-                { expiresIn: '3d' } // 3天过期
-            );
-        } catch (e) {
-            console.error('刷新令牌错误:', e);
-            res.status(500).json({
-                success: false,
-                message: '服务器错误，请稍后再试',
-                details: e.message || '未知错误'
-            });
-        }
-        res.json({
-            success: true,
-            message: '密码更新成功',
-            token
-        });
-    } catch (e) {
-        console.error('更新用户信息错误:', e);
-        res.status(500).json({
-            success: false,
-            message: '服务器错误，请稍后再试',
-            details: e.message || '未知错误'
-        });
-    }
-}
-
 exports.sendVerificationCode = async (req, res) => {
     try {
         const error = validationResult(req)
@@ -501,25 +410,13 @@ exports.sendVerificationCode = async (req, res) => {
                 message: '验证码生成失败，请稍后再试'
             });
         }
-        await emailTransporter.sendMail({
-            from: `"GEAgent平台" < ${process.env.EMAIL_USER} >`,
-            to: email,
-            subject: 'GEAgent - 邮箱验证码',
-            text: `您的验证码是: ${code}，有效期5分钟。请勿泄露给他人。`,
-            html:   `<div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e3e3e3; border-radius: 5px;">
-                        <h2 style="color: #333;">GEAgent - 邮箱验证</h2>
-                        <p>您好!</p>
-                        <p>您的验证码是: <strong style="font-size: 18px; letter-spacing: 2px;">${code}</strong></p>
-                        <p>此验证码将在5分钟后失效。请勿泄露给他人。</p>
-                        <p>如果您没有请求此验证码，请忽略此邮件。</p>
-                        <p style="margin-top: 30px; font-size: 12px; color: #999;">此邮件由系统自动发送，请勿回复。</p>
-                    </div>`,
-            headers: {
-                'X-Priority': '1',
-                'X-MSMail-Priority': 'High',
-                'Importance': 'High'
-            }
-        })
+        const result = await sendCodeEmail(email, code)
+        if (!result) {
+            return res.status(500).json({
+                success: false,
+                message: '验证码发送失败，请稍后再试'
+            });
+        }
         res.json({
             success: true,
             message: '验证码已发送到您的邮箱，请注意查收'
@@ -636,6 +533,96 @@ exports.loginByEmail = async (req, res) => {
         })
     } catch (e) {
         console.error('邮箱登录错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const error = validationResult(req)
+        if (!error.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: error.array()
+            })
+        }
+        const { code, newPassword } = req.body
+        const user = await User.findOne({
+            where: { userId: req.user.userId }
+        });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: '用户不存在'
+            })
+        }
+        const email = user.email
+        const isValidate = await verifyCode('resetPassword', email, code)
+        if (!isValidate) {
+            return res.status(400).json({
+                success: false,
+                message: "验证码错误或已过期"
+            })
+        }
+        user.password = newPassword
+        await user.save()
+        const token = jwt.sign(
+            {
+                id: user.id,
+                userId: user.userId,
+                username: user.username,
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '3d' } // 3天过期
+        )
+        res.json({
+            success: true,
+            message: '密码重置成功',
+            token
+        })
+    } catch (e) {
+        console.error('找回密码错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.getResetPasswordVerifyCode = async (req, res) => {
+    try {
+        const error = validationResult(req)
+        if (!error.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: error.array()
+            })
+        }
+        const email = req.user.email
+        const code = await storeVerificationCode('resetPassword', email, 60 * 5)
+        const result = await sendCodeEmail(email, code)
+        if (!result) {
+            return res.status(500).json({
+                success: false,
+                message: '验证码发送失败，请稍后再试'
+            })
+        }
+        res.json({
+            success: true,
+            message: '验证码已发送到您的邮箱，请注意查收'
+        })
+    } catch (e) {
+        console.error('获取重置密码验证码错误:', e);
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',

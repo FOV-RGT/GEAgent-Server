@@ -19,7 +19,7 @@ mcp.tool(
             const ge_info = {
                 "profile": {
                     "name": "GE酱",
-                    "server_version": "0.5.5",
+                    "server_version": "0.5.6",
                     "client_version": "0.2.0",
                     "creator": "MyGO!!! 团队",
                     "birth_date": "2025-03-25",

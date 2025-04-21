@@ -44,13 +44,6 @@ exports.validateUpdateInfo = [
         .escape()
 ]
 
-exports.validateUpdatePassword = [
-    check('updatedPassword')
-        .notEmpty().withMessage('新密码不能为空')
-        .isLength({ min: 8, max: 100 }).withMessage('新密码长度必须在8-100字符之间')
-        .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('新密码必须包含大小写字母和数字')
-]
-
 exports.validateConfig = [
     check('configs')
         .exists().withMessage('configs对象是必需的')
@@ -88,7 +81,11 @@ exports.validateEmail = [
     check('email')
         .notEmpty().withMessage('邮箱地址不能为空')
         .isEmail().withMessage('无效的邮箱地址')
-        .customSanitizer(value => value.trim())
+        .customSanitizer(value => value.trim()),
+    check('code')
+        .notEmpty().withMessage('验证码不能为空')
+        .isLength({ min: 6, max: 6 }).withMessage('验证码长度必须为6位数字')
+        .matches(/^\d+$/).withMessage('验证码只能包含数字')
 ]
 
 exports.validateEmailAndPurpose = [
@@ -97,4 +94,15 @@ exports.validateEmailAndPurpose = [
         .notEmpty().withMessage('purpose不能为空')
         .isIn(['register', 'login', 'bindEmail'])
         .withMessage('无效的purpose值，必须是预定义的枚举值之一')
+]
+
+exports.validateResetPassword = [
+    check('code')
+        .notEmpty().withMessage('验证码不能为空')
+        .isLength({ min: 6, max: 6 }).withMessage('验证码长度必须为6位数字')
+        .matches(/^\d+$/).withMessage('验证码只能包含数字'),
+    check('newPassword')
+        .notEmpty().withMessage('新密码不能为空')
+        .isLength({ min: 8, max: 100 }).withMessage('新密码长度必须在8-100字符之间')
+        .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('新密码必须包含大小写字母和数字')
 ]

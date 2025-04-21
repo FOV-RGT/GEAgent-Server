@@ -8,7 +8,8 @@ const {
     validateUpdateInfo,
     validateUpdatePassword,
     validateEmail,
-    validateEmailAndPurpose
+    validateEmailAndPurpose,
+    validateResetPassword
 
 } = require('../middleware/validators');
 const ossController = require('../controllers/ossController');
@@ -34,9 +35,6 @@ router.get('/refreshToken', authenticateJWT, authController.refreshToken);
 // 更新邮箱或昵称路由
 router.put('/updateInfo/:userId', authenticateJWT, validateUpdateInfo, authController.updateUser);
 
-// 更新密码路由
-router.put('/updatePassword/:userId', authenticateJWT, validateUpdatePassword, authController.updatePassword);
-
 // 上传头像路由
 router.post('/avatar', authenticateJWT, ossController.uploadAvatar);
 
@@ -51,5 +49,11 @@ router.put('/bindEmail', authenticateJWT, validateEmail, authController.bindEmai
 
 // 通过邮箱登录
 router.post('/loginByEmail', validateEmail, authController.loginByEmail);
+
+// 重置密码
+router.put('/resetPassword', authenticateJWT, validateResetPassword, authController.resetPassword);
+
+// 发送重置密码验证码
+router.get('/resetPassword', authenticateJWT, authController.getResetPasswordVerifyCode);
 
 module.exports = router;
