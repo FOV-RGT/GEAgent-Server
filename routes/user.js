@@ -50,7 +50,7 @@ router.put('/bindEmail', authenticateJWT, validateEmailAndCode, authController.b
 router.post('/loginByEmail', validateEmailAndCode, authController.loginByEmail);
 
 // 重置密码
-router.put('/resetPassword', authenticateJWT, validateResetPassword, authController.resetPassword);
+router.put('/resetPassword', validateResetPassword, authController.resetPassword);
 
 // 发送重置密码验证码
 router.post('/resetPassword', authenticateJWT, authController.getResetPasswordVerifyCode);
