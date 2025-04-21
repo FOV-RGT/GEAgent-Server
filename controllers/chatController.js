@@ -110,6 +110,7 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
     let MCPStatus = {
         status: 'running',
         fnCall: [],
+        extraCall: [],
         callStatuses: []
     }
     try {
@@ -164,6 +165,7 @@ const MCPManager = async (res, toolCalls, connectionStatus) => {
                 }
                 if (Object.keys(result.value.extraCall).length > 0) {
                     console.log('额外调用:', result.value.extraCall);
+                    MCPStatus.extraCall.push(result.value.extraCall);
                     res.write(`data: ${JSON.stringify({extraCall: result.value.extraCall})}\n\n`)
                 }
             }
