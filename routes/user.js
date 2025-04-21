@@ -41,7 +41,7 @@ router.post('/avatar', authenticateJWT, ossController.uploadAvatar);
 router.get('/avatar', authenticateJWT, ossController.getAvatarUrl);
 
 // 获取邮箱验证码
-router.get('/emailVerificationCode', validateEmailAndPurpose, authController.sendVerificationCode);
+router.post('/emailVerificationCode', validateEmailAndPurpose, authController.sendVerificationCode);
 
 // 绑定邮箱
 router.put('/bindEmail', authenticateJWT, validateEmailAndCode, authController.bindEmail);
@@ -53,6 +53,6 @@ router.post('/loginByEmail', validateEmailAndCode, authController.loginByEmail);
 router.put('/resetPassword', authenticateJWT, validateResetPassword, authController.resetPassword);
 
 // 发送重置密码验证码
-router.get('/resetPassword', authenticateJWT, authController.getResetPasswordVerifyCode);
+router.post('/resetPassword', authenticateJWT, authController.getResetPasswordVerifyCode);
 
 module.exports = router;
