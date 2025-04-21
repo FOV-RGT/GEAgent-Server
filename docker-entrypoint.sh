@@ -19,6 +19,10 @@ REQUIRED_VARS=(
   "OSS_ACCESS_KEY_SECRET"
   "OSS_REGION"
   "OSS_BUCKET_NAME"
+  "EMAIL_USER"
+  "EMAIL_PASS"
+  "REDIS_HOST"
+  "REDIS_PORT"
 )
 
 MISSING_VARS=0
@@ -60,6 +64,8 @@ export NODE_ENV=${NODE_ENV:-"production"}
 export PORT=${PORT:-3000}
 export TZ=${TZ:-"Asia/Shanghai"}
 export PYTHON_PATH=${PYTHON_PATH:-"/opt/venv/bin/python"}
+export REDIS_HOST=${REDIS_HOST:-"localhost"}
+export REDIS_PORT=${REDIS_PORT:-6379}
 
 # 配置 MCP 相关环境
 if [ -f "/app/services/biliSearch.py" ]; then

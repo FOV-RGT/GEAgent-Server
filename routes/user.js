@@ -6,8 +6,7 @@ const {
     validateLogin,
     validateRegister,
     validateUpdateInfo,
-    validateUpdatePassword,
-    validateEmail,
+    validateEmailAndCode,
     validateEmailAndPurpose,
     validateResetPassword
 
@@ -45,10 +44,10 @@ router.get('/avatar', authenticateJWT, ossController.getAvatarUrl);
 router.get('/emailVerificationCode', validateEmailAndPurpose, authController.sendVerificationCode);
 
 // 绑定邮箱
-router.put('/bindEmail', authenticateJWT, validateEmail, authController.bindEmail);
+router.put('/bindEmail', authenticateJWT, validateEmailAndCode, authController.bindEmail);
 
 // 通过邮箱登录
-router.post('/loginByEmail', validateEmail, authController.loginByEmail);
+router.post('/loginByEmail', validateEmailAndCode, authController.loginByEmail);
 
 // 重置密码
 router.put('/resetPassword', authenticateJWT, validateResetPassword, authController.resetPassword);

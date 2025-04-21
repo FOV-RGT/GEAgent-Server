@@ -77,7 +77,7 @@ exports.validatePaginationQuery = [
         .customSanitizer(value => parseInt(value)),
 ]
 
-exports.validateEmail = [
+exports.validateEmailAndCode = [
     check('email')
         .notEmpty().withMessage('邮箱地址不能为空')
         .isEmail().withMessage('无效的邮箱地址')
@@ -89,7 +89,10 @@ exports.validateEmail = [
 ]
 
 exports.validateEmailAndPurpose = [
-    ...exports.validateEmail,
+    check('email')
+        .notEmpty().withMessage('邮箱地址不能为空')
+        .isEmail().withMessage('无效的邮箱地址')
+        .customSanitizer(value => value.trim()),
     check('purpose')
         .notEmpty().withMessage('purpose不能为空')
         .isIn(['register', 'login', 'bindEmail'])
