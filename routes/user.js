@@ -52,7 +52,4 @@ router.post('/loginByEmail', validateEmailAndCode, authController.loginByEmail);
 // 重置密码
 router.put('/resetPassword', validateResetPassword, authController.resetPassword);
 
-// 发送重置密码验证码
-router.get('/resetPassword', authenticateJWT, authController.getResetPasswordVerifyCode);
-
 module.exports = router;

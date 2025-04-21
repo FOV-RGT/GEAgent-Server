@@ -551,9 +551,12 @@ exports.resetPassword = async (req, res) => {
                 errors: error.array()
             })
         }
-        const { code, newPassword } = req.body
+        const { code, newPassword, email } = req.body
         const user = await User.findOne({
-            where: { userId: req.user.userId }
+            where: { 
+                email,
+                isActive: true
+            }
         });
         if (!user) {
             return res.status(404).json({
@@ -561,7 +564,6 @@ exports.resetPassword = async (req, res) => {
                 message: '用户不存在'
             })
         }
-        const email = user.email
         const isValidate = await verifyCode('resetPassword', email, code)
         if (!isValidate) {
             return res.status(400).json({
@@ -590,39 +592,6 @@ exports.resetPassword = async (req, res) => {
         })
     } catch (e) {
         console.error('找回密码错误:', e);
-        res.status(500).json({
-            success: false,
-            message: '服务器错误，请稍后再试',
-            details: e.message || '未知错误'
-        });
-    }
-}
-
-exports.getResetPasswordVerifyCode = async (req, res) => {
-    try {
-        const error = validationResult(req)
-        if (!error.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                message: '参数验证失败',
-                errors: error.array()
-            })
-        }
-        const email = req.user.email
-        const code = await storeVerificationCode('resetPassword', email, 60 * 5)
-        const result = await sendCodeEmail(email, code)
-        if (!result) {
-            return res.status(500).json({
-                success: false,
-                message: '验证码发送失败，请稍后再试'
-            })
-        }
-        res.json({
-            success: true,
-            message: '验证码已发送到您的邮箱，请注意查收'
-        })
-    } catch (e) {
-        console.error('获取重置密码验证码错误:', e);
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',

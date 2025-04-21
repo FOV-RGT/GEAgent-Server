@@ -95,7 +95,7 @@ exports.validateEmailAndPurpose = [
         .customSanitizer(value => value.trim()),
     check('purpose')
         .notEmpty().withMessage('purpose不能为空')
-        .isIn(['register', 'login', 'bindEmail'])
+        .isIn(['register', 'login', 'bindEmail', 'resetPassword'])
         .withMessage('无效的purpose值，必须是预定义的枚举值之一')
 ]
 
@@ -107,5 +107,9 @@ exports.validateResetPassword = [
     check('newPassword')
         .notEmpty().withMessage('新密码不能为空')
         .isLength({ min: 8, max: 100 }).withMessage('新密码长度必须在8-100字符之间')
-        .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('新密码必须包含大小写字母和数字')
+        .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('新密码必须包含大小写字母和数字'),
+    check('email')
+        .notEmpty().withMessage('邮箱地址不能为空')
+        .isEmail().withMessage('无效的邮箱地址')
+        .customSanitizer(value => value.trim())
 ]
