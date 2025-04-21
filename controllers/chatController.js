@@ -27,7 +27,7 @@ exports.createNewConversation = async (req, res) => {
                 errors: error.array()
             });
         }
-        const { message = "mygo和mujica哪个好看？", LLMID = 2, title = "新对话", webSearch, enableMCPService } = req.body;
+        const { message = "mygo和mujica哪个好看？", LLMID = 3, title = "新对话", webSearch, enableMCPService } = req.body;
         if (!message) {
             return res.status(400).json({
                 success: false,
@@ -589,7 +589,7 @@ exports.continuePreviousConversation = async (req, res) => {
             web_search_used: !!webSearch,
             mcp_service: !!enableMCPService
         });
-        const historyMessages = await conversation.getPreviousMessages(4);
+        const historyMessages = await conversation.getPreviousMessages(5);
         historyMessages.push({
             role: 'user',
             content: message

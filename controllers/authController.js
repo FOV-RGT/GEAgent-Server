@@ -2,7 +2,8 @@ const { User } = require('../models');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
-require('dotenv').config();
+const { storeVerificationCode, verifyCode, emailTransporter } = require('../services/emailService.js');
+const { validate } = require('uuid');
 
 // 登录
 exports.login = async (req, res) => {
@@ -16,13 +17,10 @@ exports.login = async (req, res) => {
             });
         }
         // 查找用户
-        const { credential, password } = req.body;
+        const { username, password } = req.body;
         const user = await User.findOne({
             where: {
-                [Op.or]: [
-                    { username: credential },
-                    { email: credential }
-                ],
+                username,
                 isActive: true // 确保账号处于激活状态
             }
         });
@@ -57,6 +55,7 @@ exports.login = async (req, res) => {
         );
         res.json({
             success: true,
+            message: '登录成功',
             token,
             user: {
                 username: user.username,
@@ -86,7 +85,7 @@ exports.register = async (req, res) => {
                 errors: errors.array()
             });
         }
-        const { username, email, password, fullName } = req.body;
+        const { username, password, fullName } = req.body;
         // 检查用户名是否已存在
         const existingUsername = await User.findOne({
             where: { username }
@@ -97,23 +96,9 @@ exports.register = async (req, res) => {
                 message: '账号已被注册'
             });
         }
-        let emailToSave = null;
-        if (email && email.trim() !== '') {
-            emailToSave = email.trim();
-            const existingEmail = await User.findOne({
-                where: { email: emailToSave }
-            });
-            if (existingEmail) {
-                return res.status(400).json({
-                    success: false,
-                    message: '邮箱已被注册'
-                });
-            }
-        }
         // 创建新用户
         const newUser = await User.create({
             username,
-            email: emailToSave,
             password, // 密码会在模型中自动哈希加密
             userId: User.getNewUserId(), // 获取最大用户ID并加1
             fullName: fullName || null,
@@ -336,7 +321,7 @@ exports.updateUser = async (req, res) => {
     if (!errors.isEmpty()) {
         return res.status(400).json({
             success: false,
-            details: errors.array()
+            errors: errors.array()
         });
     }
     const { currentPassword, email, fullName } = req.body;
@@ -405,7 +390,7 @@ exports.updatePassword = async (req, res) => {
     if (!errors.isEmpty()) {
         return res.status(400).json({
             success: false,
-            details: errors.array()
+            errors: errors.array()
         });
     }
     const { currentPassword, updatedPassword } = req.body;
@@ -482,6 +467,167 @@ exports.updatePassword = async (req, res) => {
         });
     } catch (e) {
         console.error('更新用户信息错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.sendVerificationCode = async (req, res) => {
+    try {
+        const error = validationResult(req)
+        if (!error.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: error.array()
+            })
+        }
+        const { purpose, email } = req.body;
+        const code = await storeVerificationCode(purpose, email, 60 * 5);
+        if (!code) {
+            return res.status(500).json({
+                success: false,
+                message: '验证码生成失败，请稍后再试'
+            });
+        }
+        await emailTransporter.sendMail({
+            from: `"GEAgent平台" < ${process.env.EMAIL_USER} >`,
+            to: email,
+            subject: 'GEAgent - 邮箱验证码',
+            text: `您的验证码是: ${code}，有效期5分钟。请勿泄露给他人。`,
+            html:   `<div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e3e3e3; border-radius: 5px;">
+                        <h2 style="color: #333;">GEAgent - 邮箱验证</h2>
+                        <p>您好!</p>
+                        <p>您的验证码是: <strong style="font-size: 18px; letter-spacing: 2px;">${code}</strong></p>
+                        <p>此验证码将在5分钟后失效。请勿泄露给他人。</p>
+                        <p>如果您没有请求此验证码，请忽略此邮件。</p>
+                        <p style="margin-top: 30px; font-size: 12px; color: #999;">此邮件由系统自动发送，请勿回复。</p>
+                    </div>`,
+            headers: {
+                'X-Priority': '1',
+                'X-MSMail-Priority': 'High',
+                'Importance': 'High'
+            }
+        })
+        res.json({
+            success: true,
+            message: '验证码已发送到您的邮箱，请注意查收'
+        })
+    } catch (e) {
+        console.error('发送验证码错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.bindEmail = async (req, res) => {
+    try {
+        const error = validationResult(req)
+        if (!error.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: error.array()
+            })
+        }
+        const { email, code } = req.body
+        const isValidate = await verifyCode('bindEmail', email, code)
+        if (!isValidate) {
+            return res.status(400).json({
+                success: false,
+                message: "验证码错误或已过期"
+            })
+        }
+        const user = await User.findOne({
+            where: {
+                userId: req.user.userId
+            }
+        });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: '用户不存在'
+            })
+        }
+        user.email = email
+        await user.save()
+        res.json({
+            success: true,
+            message: '邮箱绑定成功'
+        })
+    } catch (e) {
+        console.error('绑定邮箱错误:', e);
+        res.status(500).json({
+            success: false,
+            message: '服务器错误，请稍后再试',
+            details: e.message || '未知错误'
+        });
+    }
+}
+
+exports.loginByEmail = async (req, res) => {
+    try {
+        const error = validationResult(req)
+        if (!error.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: error.array()
+            })
+        }
+        const { email, code } = req.body
+        const isValidate = await verifyCode('login', email, code)
+        if (!isValidate) {
+            return res.status(400).json({
+                success: false,
+                message: "验证码错误或已过期"
+            })
+        }
+        const user = await User.findOne({
+            where: {
+                email,
+                isActive: true
+            }
+        });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: '用户不存在'
+            })
+        }
+        const token = jwt.sign(
+            {
+                id: user.id,
+                userId: user.userId,
+                username: user.username,
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '3d' }
+        );
+        user.lastLogin = new Date();
+        await user.save();
+        return res.json({
+            success: true,
+            message: '登录成功',
+            token,
+            user: {
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role
+            }
+        })
+    } catch (e) {
+        console.error('邮箱登录错误:', e);
         res.status(500).json({
             success: false,
             message: '服务器错误，请稍后再试',

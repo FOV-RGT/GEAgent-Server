@@ -2,8 +2,8 @@ const { check, params } = require('express-validator');
 
 // 登录验证
 exports.validateLogin = [
-    check('credential')
-        .notEmpty().withMessage('账号或邮箱不能为空'),
+    check('username')
+        .notEmpty().withMessage('账号不能为空'),
     check('password')
         .notEmpty().withMessage('密码不能为空')
 ];
@@ -14,9 +14,6 @@ exports.validateRegister = [
         .notEmpty().withMessage('账号不能为空')
         .isLength({ min: 6, max: 50 }).withMessage('账号长度应在6到50个字符之间')
         .matches(/^[a-zA-Z0-9_-]+$/).withMessage('账号只能包含字母、数字、下划线与连字符'),
-    check('email')
-        .optional({ checkFalsy: true }) // 允许为空或未提供
-        .isEmail().withMessage('无效的电子邮件地址'),
     check('password')
         .notEmpty().withMessage('密码不能为空')
         .isLength({ min: 8, max: 100 }).withMessage('密码长度必须在8-100字符之间')
@@ -37,9 +34,6 @@ exports.validateConversationTitle = [
 ];
 
 exports.validateUpdateInfo = [
-    check('email')
-        .optional({ checkFalsy: true }) // 允许为空或未提供
-        .isEmail().withMessage('无效的电子邮件地址'),
     check('fullName')
         .optional({ checkFalsy: true })
         .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符')
@@ -84,4 +78,19 @@ exports.validatePaginationQuery = [
         .optional({ checkFalsy: true })
         .isInt({ min: 1, max: 50 }).withMessage('每页大小必须是1到50之间的整数')
         .customSanitizer(value => parseInt(value)),
+]
+
+exports.validateEmail = [
+    check('email')
+        .notEmpty().withMessage('邮箱地址不能为空')
+        .isEmail().withMessage('无效的邮箱地址')
+        .customSanitizer(value => value.trim())
+]
+
+exports.validateEmailAndPurpose = [
+    ...exports.validateEmail,
+    check('purpose')
+        .notEmpty().withMessage('purpose不能为空')
+        .isIn(['login', 'bindEmail'])
+        .withMessage('无效的purpose值，必须是预定义的枚举值之一')
 ]

@@ -5,9 +5,10 @@ const { authenticateJWT, authorizeRole } = require('../middleware/auth');
 const {
     validateLogin,
     validateRegister,
-    validateUserCreation,
     validateUpdateInfo,
     validateUpdatePassword,
+    validateEmail,
+    validateEmailAndPurpose
 
 } = require('../middleware/validators');
 const ossController = require('../controllers/ossController');
@@ -41,5 +42,14 @@ router.post('/avatar', authenticateJWT, ossController.uploadAvatar);
 
 // 获取头像URL路由
 router.get('/avatar', authenticateJWT, ossController.getAvatarUrl);
+
+// 获取邮箱验证码
+router.get('/emailVerificationCode', authenticateJWT, validateEmailAndPurpose, authController.sendVerificationCode);
+
+// 绑定邮箱
+router.put('/bindEmail', authenticateJWT, validateEmail, authController.bindEmail);
+
+// 通过邮箱登录
+router.post('/loginByEmail', validateEmail, authController.loginByEmail);
 
 module.exports = router;
