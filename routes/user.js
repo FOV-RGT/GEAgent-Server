@@ -53,6 +53,6 @@ router.post('/loginByEmail', validateEmailAndCode, authController.loginByEmail);
 router.put('/resetPassword', validateResetPassword, authController.resetPassword);
 
 // 发送重置密码验证码
-router.post('/resetPassword', authenticateJWT, authController.getResetPasswordVerifyCode);
+router.get('/resetPassword', authenticateJWT, authController.getResetPasswordVerifyCode);
 
 module.exports = router;
