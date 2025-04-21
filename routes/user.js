@@ -44,7 +44,7 @@ router.post('/avatar', authenticateJWT, ossController.uploadAvatar);
 router.get('/avatar', authenticateJWT, ossController.getAvatarUrl);
 
 // 获取邮箱验证码
-router.get('/emailVerificationCode', authenticateJWT, validateEmailAndPurpose, authController.sendVerificationCode);
+router.get('/emailVerificationCode', validateEmailAndPurpose, authController.sendVerificationCode);
 
 // 绑定邮箱
 router.put('/bindEmail', authenticateJWT, validateEmail, authController.bindEmail);

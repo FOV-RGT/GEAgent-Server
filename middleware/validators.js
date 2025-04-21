@@ -21,7 +21,11 @@ exports.validateRegister = [
     check('fullName')
         .optional({ checkFalsy: true })
         .isLength({ max: 20 }).withMessage('昵称长度不能超过20个字符')
-        .escape()
+        .escape(),
+    check('email')
+        .notEmpty().withMessage('邮箱地址不能为空')
+        .isEmail().withMessage('无效的邮箱地址')
+        .customSanitizer(value => value.trim())
 ]
 
 // 验证对话标题
@@ -91,6 +95,6 @@ exports.validateEmailAndPurpose = [
     ...exports.validateEmail,
     check('purpose')
         .notEmpty().withMessage('purpose不能为空')
-        .isIn(['login', 'bindEmail'])
+        .isIn(['register', 'login', 'bindEmail'])
         .withMessage('无效的purpose值，必须是预定义的枚举值之一')
 ]

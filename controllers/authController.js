@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { storeVerificationCode, verifyCode, emailTransporter } = require('../services/emailService.js');
-const { validate } = require('uuid');
 
 // 登录
 exports.login = async (req, res) => {
@@ -85,7 +84,7 @@ exports.register = async (req, res) => {
                 errors: errors.array()
             });
         }
-        const { username, password, fullName } = req.body;
+        const { username, password, fullName, email, code } = req.body;
         // 检查用户名是否已存在
         const existingUsername = await User.findOne({
             where: { username }
@@ -96,14 +95,23 @@ exports.register = async (req, res) => {
                 message: '账号已被注册'
             });
         }
+        const isValidate = await verifyCode('register', email, code);
+        if (!isValidate) {
+            return res.status(400).json({
+                success: false,
+                message: "验证码错误或已过期"
+            });
+        }
         // 创建新用户
         const newUser = await User.create({
             username,
             password, // 密码会在模型中自动哈希加密
+            email,
             userId: User.getNewUserId(), // 获取最大用户ID并加1
             fullName: fullName || null,
             role: 'user', // 默认角色为用户
             isActive: true // 默认激活状态
+            
         });
         // 生成JWT
         const token = jwt.sign(
