@@ -431,6 +431,7 @@ exports.sendVerificationCode = async (req, res) => {
     }
 }
 
+// 绑定邮箱
 exports.bindEmail = async (req, res) => {
     try {
         const error = validationResult(req)
@@ -476,6 +477,7 @@ exports.bindEmail = async (req, res) => {
     }
 }
 
+// 邮箱登录
 exports.loginByEmail = async (req, res) => {
     try {
         const error = validationResult(req)
@@ -541,6 +543,7 @@ exports.loginByEmail = async (req, res) => {
     }
 }
 
+// 重置密码
 exports.resetPassword = async (req, res) => {
     try {
         const error = validationResult(req)

@@ -20,4 +20,9 @@ app.use(cors());
 app.use('/api', indexRouter);
 app.use('/api/test', testRouter);
 
+app.get('/admin*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+
 module.exports = app;

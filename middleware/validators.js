@@ -25,7 +25,7 @@ exports.validateRegister = [
     check('email')
         .notEmpty().withMessage('邮箱地址不能为空')
         .isEmail().withMessage('无效的邮箱地址')
-        .customSanitizer(value => value.trim())
+        .customSanitizer(value => value ? value.trim() : value)
 ]
 
 // 验证对话标题
@@ -51,19 +51,19 @@ exports.validateConfig = [
     check('configs.temperature')
         .optional()
         .isFloat({ min: 0, max: 2 }).withMessage('temperature 必须是 0 到 2 之间的浮点数')
-        .customSanitizer(value => parseFloat(value)),
+        .customSanitizer(value => value ? parseFloat(value) : value),
     check('configs.top_p')
         .optional()
         .isFloat({ min: 0.1, max: 1.0 }).withMessage('top_p 必须是 0.1 到 1.0 之间的浮点数')
-        .customSanitizer(value => parseFloat(value)),
+        .customSanitizer(value => value ? parseFloat(value) : value),
     check('configs.top_k')
         .optional()
         .isInt({ min: 0, max: 100 }).withMessage('top_k 必须是 0 到 100 之间的整数')
-        .customSanitizer(value => parseInt(value)),
+        .customSanitizer(value => value ? parseInt(value) : value),
     check('configs.frequent_penalty')
         .optional()
         .isFloat({ min: -2, max: 2 }).withMessage('frequent_penalty 必须是 -2 到 2 之间的浮点数')
-        .customSanitizer(value => parseFloat(value))
+        .customSanitizer(value => value ? parseFloat(value) : value)
 ]
 
 exports.validatePaginationQuery = [
@@ -74,14 +74,14 @@ exports.validatePaginationQuery = [
     check('pageSize')
         .optional({ checkFalsy: true })
         .isInt({ min: 1, max: 50 }).withMessage('每页大小必须是1到50之间的整数')
-        .customSanitizer(value => parseInt(value)),
+        .customSanitizer(value => value ? parseInt(value) : value),
 ]
 
 exports.validateEmailAndCode = [
     check('email')
         .notEmpty().withMessage('邮箱地址不能为空')
         .isEmail().withMessage('无效的邮箱地址')
-        .customSanitizer(value => value.trim()),
+        .customSanitizer(value => value ? value.trim() : value),
     check('code')
         .notEmpty().withMessage('验证码不能为空')
         .isLength({ min: 6, max: 6 }).withMessage('验证码长度必须为6位数字')
@@ -92,7 +92,7 @@ exports.validateEmailAndPurpose = [
     check('email')
         .notEmpty().withMessage('邮箱地址不能为空')
         .isEmail().withMessage('无效的邮箱地址')
-        .customSanitizer(value => value.trim()),
+        .customSanitizer(value => value ? value.trim() : value),
     check('purpose')
         .notEmpty().withMessage('purpose不能为空')
         .isIn(['register', 'login', 'bindEmail', 'resetPassword'])
@@ -111,5 +111,5 @@ exports.validateResetPassword = [
     check('email')
         .notEmpty().withMessage('邮箱地址不能为空')
         .isEmail().withMessage('无效的邮箱地址')
-        .customSanitizer(value => value.trim())
+        .customSanitizer(value => value ? value.trim() : value)
 ]
