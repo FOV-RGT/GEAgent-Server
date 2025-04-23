@@ -334,14 +334,16 @@ exports.updateUser = async (req, res) => {
     }
     const { currentPassword, email, fullName } = req.body;
     try {
-        const user = await User.findByPk(req.params.userId);
+        const user = await User.findOne({
+            where: { userId: req.user.userId }
+        });
         if (!user) {
             return res.status(404).json({
                 success: false,
                 message: '用户不存在'
             });
         }
-        if (!!email) {
+        if (email) {
             if (!currentPassword) {
                 return res.status(400).json({
                     success: false,
@@ -371,7 +373,7 @@ exports.updateUser = async (req, res) => {
                 user.email = email.trim();
             }
         }
-        if (!!fullName && fullName !== user.fullName) {
+        if (fullName && fullName !== user.fullName) {
             user.fullName = fullName;
         }
         await user.save();
