@@ -10,6 +10,7 @@ try {
             ? { socketPath: '//./pipe/docker_engine' } // Windows路径
             : { socketPath: '/var/run/docker.sock' }   // Linux/Mac路径
     );
+    
 } catch (error) {
     console.warn('Docker客户端初始化失败:', error.message);
     docker = null;

@@ -24,11 +24,14 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # 运行阶段
 FROM node:22-slim
 
+# 创建docker组(GID与宿主机相同)和非root用户
+ARG DOCKER_GID=999  # 宿主机上docker组的GID，可能需要调整
+RUN groupadd -r geagent && useradd -r -g geagent -m geagent && \
+    (getent group docker > /dev/null || groupadd -g $DOCKER_GID docker || groupadd docker) && \
+    usermod -aG docker geagent
+
 # 设置工作目录
 WORKDIR /app
-
-# 创建非root用户
-RUN groupadd -r geagent && useradd -r -g geagent -m geagent
 
 # 安装运行时必要的系统依赖
 RUN apt-get update && \
@@ -49,7 +52,7 @@ ENV PYTHON_PATH=/opt/venv/bin/python
 # 从构建阶段复制node_modules
 COPY --from=builder /app/node_modules ./node_modules
 
-# 复制项目文件
+# 复制项目文
 COPY . .
 
 # 单独处理入口脚本，确保格式正确并有执行权限

@@ -109,6 +109,19 @@ if [ -n "$DB_HOST" ]; then
   done
 fi
 
+# 检查Docker socket是否已挂载
+if [ -e "/var/run/docker.sock" ]; then
+  echo "✓ Docker socket已挂载，容器状态监控可用"
+  # 确保容器内用户有权限访问socket
+  if [ ! -r "/var/run/docker.sock" ]; then
+    echo "⚠️ 警告: Docker socket存在但当前用户($(whoami))无法读取"
+    echo "   这可能导致容器状态监控功能不可用"
+  fi
+else
+  echo "⚠️ 警告: Docker socket未挂载，容器状态监控将不可用"
+  echo "   如需启用，请使用 -v /var/run/docker.sock:/var/run/docker.sock:ro 参数"
+fi
+
 # 启动服务器
 echo "开始于 $NODE_ENV 环境启动GEAgent Server"
 if [ "$NODE_ENV" = "development" ]; then
