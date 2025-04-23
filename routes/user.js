@@ -32,7 +32,7 @@ router.post('/create', authenticateJWT, authorizeRole(['admin']), validateRegist
 router.get('/refreshToken', authenticateJWT, authController.refreshToken);
 
 // 更新邮箱或昵称路由
-router.put('/updateInfo', authenticateJWT, validateUpdateInfo, authController.updateUser);
+router.put('/me', authenticateJWT, validateUpdateInfo, authController.updateUser);
 
 // 上传头像路由
 router.post('/avatar', authenticateJWT, ossController.uploadAvatar);
