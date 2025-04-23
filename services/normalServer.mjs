@@ -259,7 +259,7 @@ mcp.tool(
 async function main() {
     const transport = new StdioServerTransport();
     await mcp.connect(transport);
-    console.error("Weather MCP Server running on stdio");
+    console.error("normal_MCP_Server已启动，等待连接");
 }
 
 main().catch((error) => {
