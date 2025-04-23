@@ -16,7 +16,7 @@ exports.validateRegister = [
         .matches(/^[a-zA-Z0-9_-]+$/).withMessage('账号只能包含字母、数字、下划线与连字符'),
     check('password')
         .notEmpty().withMessage('密码不能为空')
-        .isLength({ min: 8, max: 100 }).withMessage('密码长度必须在8-100字符之间')
+        .isLength({ min: 8, max: 50 }).withMessage('密码长度必须在8-50字符之间')
         .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/).withMessage('密码必须包含大小写字母和数字'),
     check('fullName')
         .optional({ checkFalsy: true })
