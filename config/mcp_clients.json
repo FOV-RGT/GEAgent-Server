@@ -1,0 +1,38 @@
+[
+  {
+    "name": "biliSearch",
+    "version": "1.1.0",
+    "transport": {
+      "command": "python",
+      "args": [
+        "services/biliSearch.py"
+      ]
+    },
+    "status": {
+      "state": "connected",
+      "lastConnected": null,
+      "error": null,
+      "toolsCount": 0,
+      "lastUpdated": null
+    },
+    "method": "stdio"
+  },
+  {
+    "name": "normal",
+    "version": "1.0.0",
+    "transport": {
+      "command": "node",
+      "args": [
+        "services/normalServer.mjs"
+      ]
+    },
+    "status": {
+      "state": "connected",
+      "lastConnected": null,
+      "error": null,
+      "toolsCount": 0,
+      "lastUpdated": null
+    },
+    "method": "stdio"
+  }
+]

@@ -1,4 +1,5 @@
-
+const fs = require('fs');
+const path = require('path');
 
 class createMCPManager {
     constructor() {
@@ -7,30 +8,18 @@ class createMCPManager {
         this.clients = new Map();
         this.toolsMap = new Map();
         this.toolsList = [];
+        this.configPath = path.join(__dirname, '../config/mcp_clients.json');
+        this.init()
     }
     async init() {
         const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
         this.NewClient = Client;
         const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
         this.NewStdioClientTransport = StdioClientTransport;
-        const clientConfigs = [
-            {
-                name: 'biliSearch',
-                version: '1.0.0',
-                transport: {
-                    command: "python",
-                    args: ["services/biliSearch.py"]
-                }
-            },
-            {
-                name: 'normal',
-                version: '1.0.0',
-                transport: {
-                    command: 'node',
-                    args: ['services/normalServer.mjs']
-                }
-            }
-        ];
+        const clientConfigs = this.loadClientConfigs(true);
+        this.clients = new Map();
+        this.toolsMap = new Map();
+        this.toolsList = [];
         await Promise.allSettled(clientConfigs.map(async (config) => {
             try {
                 const client = new Client({
@@ -45,10 +34,80 @@ class createMCPManager {
                 console.error(`客户端 ${config.name} 初始化失败:`, err);
             }
         }));
-        
-        // 直接构建工具映射
         await this.buildToolsMap();
         console.log(`工具映射完成，共 ${this.toolsMap.size} 个工具`);
+    }
+    loadClientConfigs(filterDisconnected = false) {
+        try {
+            if (!fs.existsSync(this.configPath)) {
+                return [
+                    {
+                        name: 'biliSearch',
+                        version: '1.0.0',
+                        transport: {
+                            command: "python",
+                            args: ["services/biliSearch.py"]
+                        },
+                        status: {
+                            state: 'disconnected',
+                            lastConnected: null,
+                            error: null,
+                            toolsCount: 0,
+                            lastUpdated: new Date().toISOString()
+                        }
+                    },
+                    {
+                        name: 'normal',
+                        version: '1.0.0',
+                        transport: {
+                            command: 'node',
+                            args: ['services/normalServer.mjs']
+                        },
+                        status: {
+                            state: 'disconnected',
+                            lastConnected: null,
+                            error: null,
+                            toolsCount: 0,
+                            lastUpdated: new Date().toISOString()
+                        }
+                    }
+                ];
+            }
+            
+            const configData = JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
+            
+            // 仅在需要过滤时才过滤掉断开连接的客户端
+            if (filterDisconnected) {
+                return configData.filter(config => config.status.state !== 'disconnected');
+            }
+            
+            // 否则返回所有配置
+            return configData;
+        } catch (error) {
+            console.error('加载MCP客户端配置文件失败:', error);
+            // 返回默认配置...
+        }
+    }
+    saveClientConfigs(configs) {
+        try {
+            fs.writeFileSync(this.configPath, JSON.stringify(configs, null, 2), 'utf8');
+            return true;
+        } catch (error) {
+            console.error('保存MCP客户端配置失败:', error);
+            return false;
+        }
+    }
+    getClientConfigs() {
+        return this.loadClientConfigs();
+    }
+    async reloadClients() {
+        try {
+            await this.init();
+            return true;
+        } catch (error) {
+            console.error('重新加载MCP客户端失败:', error);
+            return false;
+        }
     }
     getAllClients(callback) {
         let tasks = []
@@ -130,6 +189,6 @@ class createMCPManager {
     }
 }
 
-module.exports = {
-    createMCPManager
-};
+const MCPManager = new createMCPManager();
+
+module.exports = MCPManager;

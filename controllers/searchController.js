@@ -1,14 +1,10 @@
 const { client } = require('../services/searchService');
 const util = require('util');
 require('dotenv').config();
-const { createMCPManager } = require('../services/mcp-client');
+const MCPManager = require('../services/mcp-client');
 
-const MCPManager = new createMCPManager()
-MCPManager.init().then(() => {
-    console.log('MCP初始化成功')
-}).catch((e) => {
-    console.error('MCP初始化失败:', e)
-})
+
+
 
 exports.createNewSearch = async (query) => {
     try {

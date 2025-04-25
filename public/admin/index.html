@@ -2,11 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/admin/assets/logo-CEsvZ8jx.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GEAgent-Manager</title>
-    <script type="module" crossorigin src="/assets/index-BK4beZZi.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-LnBUaSdd.css">
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || 'system';
+        
+        if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/admin/assets/index-D5g73xSG.js"></script>
+    <link rel="stylesheet" crossorigin href="/admin/assets/index-Bx_bBIt8.css">
   </head>
   <body>
     <div id="app"></div>

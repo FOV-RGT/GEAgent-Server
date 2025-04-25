@@ -4,7 +4,7 @@ const chat = require('./chat');
 const user = require('./user');
 const config = require('./config');
 const mcp = require('./mcp');
-const docker = require('./docker');
+const system = require('./system');
 
 router.get('/', (req, res) => {
 	res.json({congratulation: '后端服务工作正常'});
@@ -18,6 +18,6 @@ router.use('/config', config);
 
 router.use('/mcp', mcp);
 
-router.use('/docker', docker);
+router.use('/system', system);
 
 module.exports = router;
