@@ -34,5 +34,24 @@
       "lastUpdated": null
     },
     "method": "stdio"
+  },
+  {
+    "name": "SSE",
+    "version": "1.0.0",
+    "method": "sse",
+    "transport": {
+      "command": "",
+      "args": [
+        ""
+      ],
+      "url": "http://localhost:8000/sse"
+    },
+    "status": {
+      "state": "connected",
+      "error": null,
+      "toolsCount": 0,
+      "lastConnected": null,
+      "lastUpdated": null
+    }
   }
 ]

@@ -47,17 +47,6 @@ exports.updateClientConfigs = async (req, res) => {
                 details: 'configs必须是数组'
             });
         }
-        // 验证配置格式
-        for (const config of configs) {
-            if (!config.name || !config.version || !config.transport || 
-                !config.transport.command || !Array.isArray(config.transport.args)) {
-                return res.status(400).json({
-                    success: false,
-                    message: '无效的配置项',
-                    details: '每个配置项必须包含name, version和transport字段，且transport包含command和args'
-                });
-            }
-        }
         // 更新配置文件
         const success = MCPManager.saveClientConfigs(configs);
         if (success) {

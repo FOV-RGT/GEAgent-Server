@@ -80,12 +80,12 @@ exports.MCPCallTool = async (req, res) => {
                 message: '缺少工具名称'
             });
         }
-        if (Object.keys(arguments).length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: '缺少工具参数'
-            });
-        }
+        // if (Object.keys(arguments).length === 0) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: '缺少工具参数'
+        //     });
+        // }
         const { normalResult, extraData } = await exports.callTool(name, arguments);
         res.json({
             result: type === 'normal' ? normalResult : extraData,

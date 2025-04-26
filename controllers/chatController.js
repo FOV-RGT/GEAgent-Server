@@ -310,6 +310,11 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                 role: "system",
                 content: promptManager.functionCallPrompt2
             });
+        } else {
+            historyMessages.push({
+                role: "system",
+                content: promptManager.basePrompt
+            });
         }
         const data = {
             model,
@@ -471,7 +476,7 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
                             historyMessages.push({
                                 role: 'system',
                                 content: `当前正位于工具调用的对话回调阶段，用户无法输入内容，由系统代发空消息。
-                                不管用户输入了多少轮空内容，永远都只有一种情况：当前正在执行工具调用的对话回调。
+                                强制检查是否已完成了用户先前交代的任务。若完成，可结束对话，不调用工具。若未完成，必须基于当前工具调用结果执行下一步的对话或继续工具调用！！！
                                 只要你发起工具调用，工具调用的对话回调将会一直循环。可主动结束表情包的发送以打破循环。
                                 禁止模仿先前的回答，提供任何未经确认的事实信息！
                                 `

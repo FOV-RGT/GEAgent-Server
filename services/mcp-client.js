@@ -16,6 +16,8 @@ class createMCPManager {
         this.NewClient = Client;
         const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
         this.NewStdioClientTransport = StdioClientTransport;
+        const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
+        this.NewSSEClientTransport = SSEClientTransport;
         const clientConfigs = this.loadClientConfigs(true);
         this.clients = new Map();
         this.toolsMap = new Map();
@@ -26,7 +28,9 @@ class createMCPManager {
                     name: config.name,
                     version: config.version
                 });
-                const transport = new StdioClientTransport(config.transport);
+                const transport = config.method === 'sse' 
+                    ? new SSEClientTransport(new URL(config.transport.url))
+                    : new StdioClientTransport(config.transport);
                 await client.connect(transport);
                 this.clients.set(config.name, client);
                 console.log(`客户端 ${config.name} 初始化成功`);
@@ -73,14 +77,11 @@ class createMCPManager {
                     }
                 ];
             }
-            
             const configData = JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
-            
             // 仅在需要过滤时才过滤掉断开连接的客户端
             if (filterDisconnected) {
                 return configData.filter(config => config.status.state !== 'disconnected');
             }
-            
             // 否则返回所有配置
             return configData;
         } catch (error) {
@@ -185,6 +186,8 @@ class createMCPManager {
             name: toolName,
             arguments: args
         });
+        console.log('调用工具', result);
+        
         return result;
     }
 }
