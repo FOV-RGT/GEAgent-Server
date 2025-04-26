@@ -301,6 +301,8 @@ const conversationManager = async (req, res, conversation, historyMessages, inte
             });
         }
         const model = LLM_CONFIG[LLMID].model;
+        console.log('模型:', model);
+        
         let tools = null;
         if (enableMCPService) {
             tools = await searchController.getToolslist();
